@@ -1,0 +1,21 @@
+{
+	"deno.enablePaths": [
+		"sample/",
+		"src/",
+		"tools/"
+	],
+	"cSpell.words": [
+		"HREDRAW",
+		"HRESULT",
+		"HWND",
+		"LPCWSTR",
+		"LPVOID",
+		"LPWSTR",
+		"LRESULT",
+		"PCWSTR",
+		"vcproj",
+		"VREDRAW",
+		"Weapn",
+		"Windowproc"
+	]
+}
