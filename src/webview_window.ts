@@ -1,12 +1,12 @@
-import { WindowClassEx } from '../../deno_winapi/src/structs/window_class_ex.ts';
-import { winApi } from './win_api.ts';
-import { webview2 } from './webview2.ts';
+import { winApi, WindowClassEx } from './win_api.ts';
+import { createWebView2 } from './webview2.ts';
 
 export class WebViewWindow {
   protected style: number;
   protected styleEx: number;
   protected windowClassEx: WindowClassEx;
   protected windowHandle!: HWND;
+  protected webview2!: Deno.DynamicLibrary<WEBVIEW2_FUNCS>;
   protected webview2Connector!: Deno.PointerValue;
 
   public constructor() {
@@ -58,6 +58,7 @@ export class WebViewWindow {
   public show() {}
 
   public initWebView() {
+    this.webview2 = createWebView2();
     const callback = new Deno.UnsafeCallback(
       {
         parameters: [
@@ -74,7 +75,7 @@ export class WebViewWindow {
         return errorCode;
       },
     );
-    webview2.symbols._CreateCoreWebView2EnvironmentWithOptions(
+    this.webview2.symbols._CreateCoreWebView2EnvironmentWithOptions(
       null,
       null,
       null,
@@ -99,13 +100,13 @@ export class WebViewWindow {
         controller: LPVOID,
       ) => {
         if (controller) {
-          webview2.symbols.InitControllers(this.webview2Connector, controller);
+          this.webview2.symbols.InitControllers(this.webview2Connector, controller);
         }
         return errorCode;
       },
     );
-    this.webview2Connector = webview2.symbols.CreateWebView2Connector(createdEnvironment);
-    webview2.symbols.CreateCoreWebView2Controller(
+    this.webview2Connector = this.webview2.symbols.CreateWebView2Connector(createdEnvironment);
+    this.webview2.symbols.CreateCoreWebView2Controller(
       this.webview2Connector,
       this.windowHandle,
       callback.pointer,

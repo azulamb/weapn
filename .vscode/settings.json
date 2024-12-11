@@ -5,14 +5,18 @@
 		"tools/"
 	],
 	"cSpell.words": [
+		"COREWEBVIEW",
 		"HREDRAW",
 		"HRESULT",
 		"HWND",
 		"LPCWSTR",
+		"lpsz",
 		"LPVOID",
 		"LPWSTR",
 		"LRESULT",
+		"OVERLAPPEDWINDOW",
 		"PCWSTR",
+		"USEDEFAULT",
 		"vcproj",
 		"VREDRAW",
 		"Weapn",

@@ -1,6 +1,7 @@
 cache/
 packages/
 v17/
+tmp/
 *.db
 *.exp
 *.idb

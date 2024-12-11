@@ -1,8 +1,12 @@
 {
   "tasks": {
     "convert": "deno run --allow-read --allow-write tools/convert.ts",
-    "update": "cp webview2/x64/Release/webview2.dll webview2.dll",
-    "start": "deno run --allow-ffi --allow-env --unstable src/main.ts"
+    "version": "deno run --allow-read --allow-write tools/version.ts",
+    "start": "deno run --allow-ffi --allow-env --unstable sample/main.ts",
+    "update": {
+      "command": "deno fmt",
+      "dependencies": ["convert", "version"]
+    }
   },
   "lock": false,
   "lint": {

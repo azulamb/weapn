@@ -1,7 +1,7 @@
 #include "WebView2.hpp"
 
 /**
-* Grobal
+* Global
 */
 
 EXPORT HRESULT _CompareBrowserVersions(
