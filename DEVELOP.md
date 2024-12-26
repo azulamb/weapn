@@ -2,6 +2,8 @@
 
 ## webview2
 
+VisualStudio 2022
+
 ### プロジェクトの新規作成
 
 VisualStudioの新バージョンがリリースされ、新規でプロジェクトを作る場合の初期設定
@@ -22,11 +24,11 @@ VisualStudioの新バージョンがリリースされ、新規でプロジェ�
         * Release: `マルチスレッド(/MT)`
 * 後述する `.vcproj` の編集
 
-### vcprojの編集
+### staticにする場合のvcprojの編集
+
+メモ書き。後でちょっと考える。
 
 https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/how-to/static
-
-以下のように編集する。
 
 ```xml
   <ImportGroup Label="ExtensionTargets">
@@ -35,4 +37,10 @@ https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/how-to/static
   </ImportGroup>
 ```
 
-WebViewのバージョンが低い可能性があるので、 `ツール` → `NuGet パッケージマネージャー` → `ソリューションの NuGet パッケージの管理` からアップデートする。
+の後に追加。
+
+```xml
+  <PropertyGroup>
+    <WebView2LoaderPreference>Static</WebView2LoaderPreference>
+  </PropertyGroup>
+```

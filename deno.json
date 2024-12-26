@@ -19,5 +19,8 @@
     "lineWidth": 160,
     "semiColons": true,
     "singleQuote": true
+  },
+  "imports": {
+    "_deno_winapi": "../../deno_winapi/mod.ts"
   }
 }

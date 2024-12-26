@@ -2,7 +2,7 @@ const IMPORT_SRC = './webview2/WebView2.cpp';
 const EXPORT_TYPE = './src/webview2.d.ts';
 const EXPORT_PARAMS = './src/webview2_params.ts';
 
-// TODO: remake parser. Load dll.
+// TODO: remake parser.
 
 function convertType(type: string) {
   if (type.match(/\*$/)) {
