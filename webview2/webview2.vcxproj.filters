@@ -26,9 +26,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="$(MSBuildThisFileDirectory)..\..\natvis\wil.natvis" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="WebView2.hpp">
       <Filter>Headers</Filter>
     </ClInclude>

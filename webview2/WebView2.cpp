@@ -1,23 +1,26 @@
 #include "WebView2.hpp"
 
+void Log(const WCHAR* message) {
+#ifdef _DEBUG
+	OutputDebugString(message);
+	//wprintf(message);
+#endif
+}
+
 /**
 * Global
 */
 
-EXPORT HRESULT _CompareBrowserVersions(
-	PCWSTR version1,
-	PCWSTR version2,
-	int* result
-) {
-	return ::CompareBrowserVersions(version1, version2, result);
-}
-
 EXPORT HRESULT _CreateCoreWebView2Environment(
+	WebView2Connector* webview2,
 	HRESULT(*callback)(HRESULT, ICoreWebView2Environment*)
 ) {
+	Log(__FUNCTIONW__  L"\n");
 	return ::CreateCoreWebView2Environment(
 		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-			[callback](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+			[callback, webview2](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+				Log(__FUNCTIONW__  L"\n");
+				webview2->setWebView2Environment(env);
 				return callback(result, env);
 			}
 		).Get()
@@ -25,27 +28,41 @@ EXPORT HRESULT _CreateCoreWebView2Environment(
 }
 
 EXPORT HRESULT _CreateCoreWebView2EnvironmentWithOptions(
+	WebView2Connector* webview2,
 	PCWSTR browserExecutableFolder,
 	PCWSTR userDataFolder,
 	ICoreWebView2EnvironmentOptions* environmentOptions,
 	HRESULT(*callback)(HRESULT result, ICoreWebView2Environment* env)
 ) {
+	Log(__FUNCTIONW__  L"\n");
 	return ::CreateCoreWebView2EnvironmentWithOptions(
 		browserExecutableFolder,
 		browserExecutableFolder,
 		environmentOptions,
 		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
-			[callback](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+			[callback, webview2](HRESULT result, ICoreWebView2Environment* env) -> HRESULT {
+				Log(__FUNCTIONW__  L"\n");
+				webview2->setWebView2Environment(env);
 				return callback(result, env);
 			}
 		).Get()
 	);
 }
 
+EXPORT HRESULT _CompareBrowserVersions(
+	PCWSTR version1,
+	PCWSTR version2,
+	int* result
+) {
+	Log(__FUNCTIONW__  L"\n");
+	return ::CompareBrowserVersions(version1, version2, result);
+}
+
 EXPORT HRESULT _GetAvailableCoreWebView2BrowserVersionString(
 	PCWSTR browserExecutableFolder,
 	LPWSTR* versionInfo
 ) {
+	Log(__FUNCTIONW__  L"\n");
 	return ::GetAvailableCoreWebView2BrowserVersionString(browserExecutableFolder, versionInfo);
 }
 
@@ -56,10 +73,21 @@ EXPORT HRESULT _GetAvailableCoreWebView2BrowserVersionString(
 EXPORT WebView2Connector* CreateWebView2Connector(
 	ICoreWebView2Environment* env
 ) {
+	Log(__FUNCTIONW__  L"\n");
+	if (!env) {
+		return new WebView2Connector();
+	}
 	return (new WebView2Connector())->setWebView2Environment(env);
 }
 
-EXPORT WebView2Connector* initSettings(WebView2Connector* webview2)
+EXPORT WebView2Connector* SetWebview2Environment(
+	WebView2Connector* webview2,
+	ICoreWebView2Environment* env
+) {
+	return webview2->setWebView2Environment(env);
+}
+
+EXPORT WebView2Connector* InitSettings(WebView2Connector* webview2)
 {
 	return webview2->initSettings();
 }
