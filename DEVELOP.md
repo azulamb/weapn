@@ -10,6 +10,7 @@ VisualStudioの新バージョンがリリースされ、新規でプロジェ�
 
 * 空のプロジェクトを作成
 * cppファイルを追加
+  * 空でもいいので追加しないと設定がでてこない
 * Nugetでパッケージのインストール
   * `Microsoft.Web.WebView2`
   * `Microsoft.Windows.ImplementationLibrary`

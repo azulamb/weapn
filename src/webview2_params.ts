@@ -1,14 +1,14 @@
 export const params: WEBVIEW2_FUNCS = {
-  _CompareBrowserVersions: {
-    parameters: ['pointer', 'pointer', 'pointer'],
-    result: 'pointer',
-  },
   _CreateCoreWebView2Environment: {
-    parameters: ['function'],
+    parameters: ['pointer', 'function'],
     result: 'pointer',
   },
   _CreateCoreWebView2EnvironmentWithOptions: {
-    parameters: ['pointer', 'pointer', 'pointer', 'function'],
+    parameters: ['pointer', 'pointer', 'pointer', 'pointer', 'function'],
+    result: 'pointer',
+  },
+  _CompareBrowserVersions: {
+    parameters: ['pointer', 'pointer', 'pointer'],
     result: 'pointer',
   },
   _GetAvailableCoreWebView2BrowserVersionString: {
@@ -19,7 +19,11 @@ export const params: WEBVIEW2_FUNCS = {
     parameters: ['pointer'],
     result: 'pointer',
   },
-  initSettings: {
+  SetWebview2Environment: {
+    parameters: ['pointer', 'pointer'],
+    result: 'pointer',
+  },
+  InitSettings: {
     parameters: ['pointer'],
     result: 'pointer',
   },

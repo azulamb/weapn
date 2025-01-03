@@ -1,5 +1,8 @@
 import { winApi, WindowClassEx } from './win_api.ts';
 import { createWebView2 } from './webview2.ts';
+import { EventRegistrationToken } from './structs/event_registration_token.ts';
+
+const TRUE = 1;
 
 export class WebViewWindow {
   protected style: number;
@@ -8,24 +11,51 @@ export class WebViewWindow {
   protected windowHandle!: HWND;
   protected webview2!: Deno.DynamicLibrary<WEBVIEW2_FUNCS>;
   protected webview2Connector!: Deno.PointerValue;
+  protected token: EventRegistrationToken;
 
-  public constructor() {
+  public constructor(hInstance: HINSTANCE) {
     this.windowClassEx = winApi.create.windowClassEx();
-    this.windowClass.style = 3; //CS_HREDRAW | CS_VREDRAW
-    // Windowproc
-    this.windowClass.cbClsExtra = 0;
-    this.windowClass.cbWndExtra = 0;
-    //this.windowClassEx.hCursor
-    this.windowClass.hbrBackground = Deno.UnsafePointer.create(BigInt(5 + 1));
-    //this.windowClassEx.lpszMenuName
-    this.windowClass.setClassName('WeapnAppWindow');
-    //this.windowClassEx.hIcon
-    //this.windowClassEx.hIconSm
     this.style = winApi.create.windowStyle({
       WS_VISIBLE: true,
       WS_OVERLAPPEDWINDOW: true,
     });
-    this.styleEx = 0;
+    this.token = new EventRegistrationToken();
+
+    this.windowClass.hInstance = hInstance;
+    this.windowClass.style = winApi.create.classStyle({
+      CS_HREDRAW: true,
+      CS_VREDRAW: true,
+    });
+
+    // Windowproc
+    this.windowClass.setWindowProcedure((hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) => {
+      switch (Msg) {
+        case winApi.windowMassage.WM_CREATE:
+          console.log('Create');
+          break;
+        case winApi.windowMassage.WM_DESTROY:
+          console.log('Destroy');
+          winApi.user.PostQuitMessage(0);
+          break;
+        case winApi.windowMassage.WM_SIZE:
+          console.log('Resize');
+          this.onResizeScreen();
+          break;
+      }
+      return winApi.user.DefWindowProc(hWnd, Msg, wParam, lParam);
+    });
+    //this.windowClassEx.hCursor
+    this.windowClass.hbrBackground = Deno.UnsafePointer.create(BigInt(5 + 1));
+
+    this.windowClass.cbClsExtra = 0;
+    this.windowClass.cbWndExtra = 0;
+    //this.windowClassEx.lpszMenuName
+    this.windowClass.setClassName('WeapnAppWindow');
+    // Set deno icon.
+    this.windowClass.hIcon = winApi.user.LoadIcon(hInstance, winApi.macro.MAKEINTRESOURCE(1n));
+    this.windowClass.hIconSm = winApi.user.LoadIcon(hInstance, winApi.macro.MAKEINTRESOURCE(1n));
+
+    this.styleEx = winApi.create.windowStyleEx({});
   }
 
   get windowClass() {
@@ -36,7 +66,13 @@ export class WebViewWindow {
     return this.windowHandle;
   }
 
-  public init() {}
+  public initWindow() {
+    // Register WindowClassEx
+    const result = winApi.user.RegisterClassEx(this.windowClass.pointer);
+    if (!result) {
+      throw new Error(`Failure RegisterClassEx. [GetLastError=${winApi.kernel.GetLastError()}]`);
+    }
+  }
 
   public register() {
     winApi.user.RegisterClassEx(this.windowClassEx.pointer);
@@ -53,12 +89,19 @@ export class WebViewWindow {
       winApi.constant.CW_USEDEFAULT,
       winApi.constant.CW_USEDEFAULT,
     );
+    if (this.windowHandle === null) {
+      throw new Error('Failure CreateWindowEx');
+    }
   }
 
   public show() {}
 
-  public initWebView() {
-    this.webview2 = createWebView2();
+  public initWebView(dllPath?: string) {
+    console.log('initWebView');
+    this.webview2 = createWebView2(dllPath);
+    //console.log('CreateWebView2Connector');
+    this.webview2Connector = this.webview2.symbols.CreateWebView2Connector(null);
+    //console.log(this.webview2Connector);
     const callback = new Deno.UnsafeCallback(
       {
         parameters: [
@@ -71,21 +114,25 @@ export class WebViewWindow {
         errorCode: HRESULT,
         createdEnvironment: LPVOID,
       ) => {
+        console.log('CreateCoreWebView2EnvironmentWithOptionsCallback');
         this.createWebView(errorCode, createdEnvironment);
         return errorCode;
       },
     );
-    this.webview2.symbols._CreateCoreWebView2EnvironmentWithOptions(
+    //console.log('CreateCoreWebView2EnvironmentWithOptions');
+    const a = this.webview2.symbols._CreateCoreWebView2EnvironmentWithOptions(
+      this.webview2Connector,
       null,
       null,
       null,
       callback.pointer,
     );
+    console.log(a);
   }
 
   public createWebView(
     _errorCode: HRESULT,
-    createdEnvironment: LPVOID,
+    _createdEnvironment: LPVOID,
   ) {
     const callback = new Deno.UnsafeCallback(
       {
@@ -99,17 +146,60 @@ export class WebViewWindow {
         errorCode: HRESULT,
         controller: LPVOID,
       ) => {
-        if (controller) {
+        console.log(`createWebview(${errorCode}): ${controller}`);
+        if (controller !== null) {
+          //console.log('initControllers');
           this.webview2.symbols.InitControllers(this.webview2Connector, controller);
+          //console.log('get_CoreWebView2');
+          this.webview2.symbols.get_CoreWebView2(this.webview2Connector);
+          /*this.webview2.add_RasterizationScaleChanged(
+            this.webview2Connector,
+            CallbackAddRasterizationScaleChanged,
+            this.token.pointer
+          );*/
         }
-        return errorCode;
+
+        //console.log('get_Settings');
+        this.webview2.symbols.get_Settings(this.webview2Connector);
+        this.webview2.symbols.InitSettings(this.webview2Connector);
+
+        this.onResizeScreen();
+
+        this.webview2.symbols.put_IsScriptEnabled(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_IsWebMessageEnabled(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_AreDefaultScriptDialogsEnabled(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_AreDevToolsEnabled(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_IsStatusBarEnabled(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_AreDefaultContextMenusEnabled(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_AreHostObjectsAllowed(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_IsBuiltInErrorPageEnabled(this.webview2Connector, TRUE);
+        this.webview2.symbols.put_IsZoomControlEnabled(this.webview2Connector, TRUE);
+
+        //console.log('Navigate');
+        const a = this.webview2.symbols.Navigate(
+          this.webview2Connector,
+          winApi.create.stringPointer('https://www.google.co.jp/'),
+        );
+        //console.log(`Navigate: ${a}`);
+
+        return 0;
       },
     );
-    this.webview2Connector = this.webview2.symbols.CreateWebView2Connector(createdEnvironment);
-    this.webview2.symbols.CreateCoreWebView2Controller(
+    //console.log('CreateCoreWebView2Controller', this.webview2Connector);
+    return this.webview2.symbols.CreateCoreWebView2Controller(
       this.webview2Connector,
       this.windowHandle,
       callback.pointer,
     );
+  }
+
+  protected onResizeScreen() {
+    console.log('OnResizeScreen');
+    if (!this.webview2) {
+      return;
+    }
+    const bounds = winApi.create.rect();
+    winApi.user.GetClientRect(this.windowHandle, bounds.pointer);
+    this.webview2.symbols.put_Bounds(this.webview2Connector, bounds.data);
   }
 }

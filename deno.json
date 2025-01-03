@@ -2,7 +2,8 @@
   "tasks": {
     "convert": "deno run --allow-read --allow-write tools/convert.ts",
     "version": "deno run --allow-read --allow-write tools/version.ts",
-    "start": "deno run --allow-ffi --allow-env --unstable sample/main.ts",
+    "start": "deno run --allow-ffi --allow-env --allow-net sample/main.ts",
+    "build": "deno compile --allow-ffi --allow-env --allow-net sample/main.ts ./sample/main.exe",
     "update": {
       "command": "deno fmt",
       "dependencies": ["convert", "version"]
@@ -10,10 +11,10 @@
   },
   "lock": false,
   "lint": {
-    "include": ["./src", "./tools", "deno.json"]
+    "include": ["./sample", "./src", "./tools", "deno.json"]
   },
   "fmt": {
-    "include": ["./src", "./tools", "deno.json"],
+    "include": ["./sample", "./src", "./tools", "deno.json"],
     "useTabs": false,
     "indentWidth": 2,
     "lineWidth": 160,

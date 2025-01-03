@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="WebView2.cpp">
+    <ClCompile Include="exports.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="sample.cpp">
@@ -27,6 +27,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WebView2.hpp">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="exports.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

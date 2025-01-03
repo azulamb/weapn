@@ -1,4 +1,4 @@
-const IMPORT_SRC = './webview2/WebView2.cpp';
+const IMPORT_SRC = './webview2/exports.h';
 const EXPORT_TYPE = './src/webview2.d.ts';
 const EXPORT_PARAMS = './src/webview2_params.ts';
 
@@ -28,11 +28,12 @@ function convertType(type: string) {
     case 'COREWEBVIEW2_COLOR':
       return 'buffer'; //NativeStructType
   }
-  throw new Error(`Unknown type: ${type}`);
+  throw new Error(`Unknown type: "${type}"`);
 }
 
 function parseArg(arg: string) {
   const type = arg.replace(/\/\*.+\*\//g, '').trim().split(/\s+/);
+  console.log(type);
   if (!type[type.length - 1].match(/\)$/)) {
     type.pop();
   } else {
@@ -65,6 +66,7 @@ function parseFunc(func: string) {
   const [info, ...arg] = func.split('(');
   const result = info.split(/\s+/);
   const name = <string> result.pop();
+  console.log(name);
   const args = parseArgs(arg.join('('));
 
   return {
@@ -84,10 +86,15 @@ async function parse(src: string) {
   let func: string = '';
   for (const line of lines) {
     if (line.match(/^EXPORT/)) {
-      func = line;
-    } else if (line === '}') {
+      if (line.match(/\);$/)) {
+        funcs.push(line.replace(/^EXPORT\s+/, '').replace(/\s*\);.*$/, ')'));
+        func = '';
+      } else {
+        func = line;
+      }
+    } else if (line === ');') {
       func += line;
-      funcs.push(func.replace(/^EXPORT\s+/, '').replace(/\s*{.+$/, ''));
+      funcs.push(func.replace(/^EXPORT\s+/, '').replace(/\s*\);.*$/, ')'));
       func = '';
     } else if (func) {
       func += line.trim();

@@ -109,12 +109,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="sample.cpp" />
-    <ClCompile Include="WebView2.cpp" />
+    <ClCompile Include="exports.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="exports.h" />
     <ClInclude Include="WebView2.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

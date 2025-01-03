@@ -6,6 +6,7 @@
 	],
 	"cSpell.words": [
 		"COREWEBVIEW",
+		"HINSTANCE",
 		"HREDRAW",
 		"HRESULT",
 		"HWND",
@@ -14,12 +15,14 @@
 		"LPVOID",
 		"LPWSTR",
 		"LRESULT",
+		"MAKEINTRESOURCE",
 		"OVERLAPPEDWINDOW",
 		"PCWSTR",
 		"USEDEFAULT",
 		"vcproj",
 		"VREDRAW",
 		"Weapn",
+		"winapi",
 		"Windowproc"
 	]
 }

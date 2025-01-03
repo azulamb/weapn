@@ -4,9 +4,11 @@ import { winApi } from './win_api.ts';
 export class WeapnApp {
   protected win!: WebViewWindow;
 
-  public init() {
-    this.win = new WebViewWindow();
-    this.win.init();
+  public init(option?: {
+    webView2DllPath?: string;
+  }) {
+    this.win = new WebViewWindow(winApi.kernel.GetModuleHandle());
+    this.win.initWindow();
 
     //this.win.getWindowState()
     const exStyle = 0x00080000; // WS_EX_LAYERED
@@ -29,27 +31,21 @@ export class WeapnApp {
 		default: break;
 			state->style = WS_VISIBLE | WS_OVERLAPPEDWINDOW;
 		} */
-    const style = 0x10000000 | 0x00000000 | 0x00C00000 | 0x00080000 | 0x00040000 | 0x00020000 | 0x00010000; //WS_VISIBLE | WS_OVERLAPPEDWINDOW
-
+    //const style = 0x10000000 | 0x00000000 | 0x00C00000 | 0x00080000 | 0x00040000 | 0x00020000 | 0x00010000; //WS_VISIBLE | WS_OVERLAPPEDWINDOW
     // Window style
-
     // Cursor
+    // Title
+    //this.win.setTitle()
 
     this.win.register();
 
-    // Title
-
     this.win.create();
 
-    //this.win.setTitle()
+    this.win.initWebView(option?.webView2DllPath);
   }
 
   public run() {
     this.win.show();
-
-    this.win.initWebView();
-
-    this.win.create();
 
     const windowHandle = this.win.getWindowHandle();
 

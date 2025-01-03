@@ -1,14 +1,14 @@
 type WEBVIEW2_FUNCS = {
-  readonly _CompareBrowserVersions: {
-    readonly parameters: ['pointer', 'pointer', 'pointer'];
-    readonly result: 'pointer';
-  };
   readonly _CreateCoreWebView2Environment: {
-    readonly parameters: ['function'];
+    readonly parameters: ['pointer', 'function'];
     readonly result: 'pointer';
   };
   readonly _CreateCoreWebView2EnvironmentWithOptions: {
-    readonly parameters: ['pointer', 'pointer', 'pointer', 'function'];
+    readonly parameters: ['pointer', 'pointer', 'pointer', 'pointer', 'function'];
+    readonly result: 'pointer';
+  };
+  readonly _CompareBrowserVersions: {
+    readonly parameters: ['pointer', 'pointer', 'pointer'];
     readonly result: 'pointer';
   };
   readonly _GetAvailableCoreWebView2BrowserVersionString: {
@@ -19,7 +19,11 @@ type WEBVIEW2_FUNCS = {
     readonly parameters: ['pointer'];
     readonly result: 'pointer';
   };
-  readonly initSettings: {
+  readonly SetWebview2Environment: {
+    readonly parameters: ['pointer', 'pointer'];
+    readonly result: 'pointer';
+  };
+  readonly InitSettings: {
     readonly parameters: ['pointer'];
     readonly result: 'pointer';
   };
