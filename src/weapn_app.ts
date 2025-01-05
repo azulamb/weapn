@@ -10,13 +10,11 @@ export class WeapnApp {
     const hInstance = winApi.kernel.GetModuleHandle();
     this.win = new WebViewWindow(hInstance);
     this.win.loadDll(option?.webView2DllPath);
+
     this.win.initWindow();
+    this.win.createWindow();
 
-    this.win.register();
-
-    this.win.create();
-
-    console.log(this.win.initWebView());
+    this.win.initWebView();
   }
 
   public run() {

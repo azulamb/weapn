@@ -74,11 +74,7 @@ export class WebViewWindow {
     }
   }
 
-  public register() {
-    winApi.user.RegisterClassEx(this.windowClassEx.pointer);
-  }
-
-  public create() {
+  public createWindow() {
     this.windowHandle = winApi.user.CreateWindowEx(
       this.styleEx,
       this.windowClass.lpszClassName,
