@@ -2,8 +2,8 @@
   "tasks": {
     "convert": "deno run --allow-read --allow-write tools/convert.ts",
     "version": "deno run --allow-read --allow-write tools/version.ts",
-    "start": "deno run --allow-ffi --allow-env --allow-net sample/main.ts",
-    "build": "deno compile --allow-ffi --allow-env --allow-net sample/main.ts ./sample/main.exe",
+    "start": "deno run --allow-read --allow-ffi --allow-env --allow-net sample/main.ts",
+    "build": "deno compile --allow-read --allow-ffi --allow-env --allow-net --output ./sample/main.exe sample/main.ts",
     "update": {
       "command": "deno fmt",
       "dependencies": ["convert", "version"]

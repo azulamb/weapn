@@ -1,6 +1,7 @@
 import { winApi, WindowClassEx } from './win_api.ts';
 import { createWebView2 } from './webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
+import type { WEBVIEW2_FUNCS } from './webview2.d.ts';
 
 const TRUE = 1;
 
@@ -38,7 +39,6 @@ export class WebViewWindow {
           winApi.user.PostQuitMessage(0);
           break;
         case winApi.windowMassage.WM_SIZE:
-          console.log('Resize');
           this.onResizeScreen();
           break;
       }
@@ -88,6 +88,8 @@ export class WebViewWindow {
       winApi.constant.CW_USEDEFAULT,
       winApi.constant.CW_USEDEFAULT,
       winApi.constant.CW_USEDEFAULT,
+      null,
+      null,
     );
     if (this.windowHandle === null) {
       throw new Error('Failure CreateWindowEx');
@@ -96,12 +98,14 @@ export class WebViewWindow {
 
   public show() {}
 
-  public initWebView(dllPath?: string) {
-    console.log('initWebView');
+  public loadDll(dllPath?: string) {
     this.webview2 = createWebView2(dllPath);
-    //console.log('CreateWebView2Connector');
+    return this.webview2;
+  }
+
+  public initWebView() {
+    console.log('initWebView');
     this.webview2Connector = this.webview2.symbols.CreateWebView2Connector(null);
-    //console.log(this.webview2Connector);
     const callback = new Deno.UnsafeCallback(
       {
         parameters: [
@@ -114,20 +118,17 @@ export class WebViewWindow {
         errorCode: HRESULT,
         createdEnvironment: LPVOID,
       ) => {
-        console.log('CreateCoreWebView2EnvironmentWithOptionsCallback');
-        this.createWebView(errorCode, createdEnvironment);
-        return errorCode;
+        console.log(errorCode);
+        return this.createWebView(errorCode, createdEnvironment);
       },
     );
-    //console.log('CreateCoreWebView2EnvironmentWithOptions');
-    const a = this.webview2.symbols._CreateCoreWebView2EnvironmentWithOptions(
+    this.webview2.symbols._CreateCoreWebView2EnvironmentWithOptions(
       this.webview2Connector,
       null,
       null,
       null,
       callback.pointer,
     );
-    console.log(a);
   }
 
   public createWebView(
@@ -143,14 +144,11 @@ export class WebViewWindow {
         result: winApi.winTypes.HRESULT.ffi,
       },
       (
-        errorCode: HRESULT,
+        _errorCode: HRESULT,
         controller: LPVOID,
       ) => {
-        console.log(`createWebview(${errorCode}): ${controller}`);
         if (controller !== null) {
-          //console.log('initControllers');
           this.webview2.symbols.InitControllers(this.webview2Connector, controller);
-          //console.log('get_CoreWebView2');
           this.webview2.symbols.get_CoreWebView2(this.webview2Connector);
           /*this.webview2.add_RasterizationScaleChanged(
             this.webview2Connector,
@@ -159,7 +157,6 @@ export class WebViewWindow {
           );*/
         }
 
-        //console.log('get_Settings');
         this.webview2.symbols.get_Settings(this.webview2Connector);
         this.webview2.symbols.InitSettings(this.webview2Connector);
 
@@ -175,17 +172,14 @@ export class WebViewWindow {
         this.webview2.symbols.put_IsBuiltInErrorPageEnabled(this.webview2Connector, TRUE);
         this.webview2.symbols.put_IsZoomControlEnabled(this.webview2Connector, TRUE);
 
-        //console.log('Navigate');
-        const a = this.webview2.symbols.Navigate(
+        this.webview2.symbols.Navigate(
           this.webview2Connector,
           winApi.create.stringPointer('https://www.google.co.jp/'),
         );
-        //console.log(`Navigate: ${a}`);
 
         return 0;
       },
     );
-    //console.log('CreateCoreWebView2Controller', this.webview2Connector);
     return this.webview2.symbols.CreateCoreWebView2Controller(
       this.webview2Connector,
       this.windowHandle,

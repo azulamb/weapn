@@ -4,8 +4,8 @@
 
 void Log(const WCHAR* message) {
 #ifdef _DEBUG
-	OutputDebugString(message);
-	//wprintf(message);
+	//OutputDebugString(message);
+	wprintf(message);
 #endif
 }
 

@@ -593,8 +593,8 @@ public:
 			hWnd,
 			Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
 				[callback](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
-					wprintf(L"ICoreWebView2CreateCoreWebView2ControllerCompletedHandler:%x\n", result);
 					Log(__FUNCTIONW__  L"\n");
+					wprintf(L"ICoreWebView2CreateCoreWebView2ControllerCompletedHandler:%x\n", result);
 					return callback(result, controller);
 				}
 			).Get()
