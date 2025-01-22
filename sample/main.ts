@@ -15,7 +15,7 @@ const baseDir = IS_COMPILED ? join(Deno.cwd(), 'sample') : dirname(fromFileUrl(n
 Deno.env.set('WEBVIEW2_USER_DATA_FOLDER', join(baseDir, '.\\cache'));
 //const webview2DllPath = '../webview2/x64/Debug/webview2.dll';
 //const webview2DllPath = join(baseDir, '../webview2/x64/Debug/webview2.dll');
-const webview2DllPath = join(baseDir, '../webview2/x64/Release/webview2.dll');
+const webview2DllPath = join(baseDir, '../../deno_windows_webview2/webview2/x64/Release/webview2.dll');
 //const webview2DllPath = join(dirname(fromFileUrl(new URL(import.meta.url))), '../webview2/x64/Release/webview2.dll');
 
 const app = new WeapnApp();
