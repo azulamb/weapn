@@ -1,8 +1,3 @@
-import { params } from './webview2_params.ts';
-
-export function createWebView2(dllPath = 'webview2.dll') {
-  return Deno.dlopen(
-    dllPath,
-    params,
-  );
-}
+// TODO: change url
+export { createWebView2, version } from '../../deno_windows_webview2/mod.ts';
+export type { WEBVIEW2_FUNCS } from '../../deno_windows_webview2/mod.ts';

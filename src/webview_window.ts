@@ -1,7 +1,7 @@
 import { winApi, WindowClassEx } from './win_api.ts';
 import { createWebView2 } from './webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
-import type { WEBVIEW2_FUNCS } from './webview2.d.ts';
+import type { WEBVIEW2_FUNCS } from './webview2.ts';
 
 const TRUE = 1;
 
