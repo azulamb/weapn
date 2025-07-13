@@ -1,4 +1,4 @@
-import { compile } from '../../deno_windows_webview2/tools/compile.ts';
+import { compile } from '@azulamb/webview2/compile';
 
 const result = await compile([
   '--allow-read',
