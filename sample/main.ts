@@ -11,7 +11,7 @@ const IS_COMPILED = (() => {
 })();
 
 const baseDir = IS_COMPILED
-  ? join(Deno.cwd(), 'sample')
+  ? Deno.cwd()
   : dirname(fromFileUrl(new URL(import.meta.url)));
 
 Deno.env.set('WEBVIEW2_USER_DATA_FOLDER', join(baseDir, '.\\cache'));

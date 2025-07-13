@@ -2,7 +2,7 @@
   "tasks": {
     "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net sample/main.ts",
     "build": "deno run --allow-run ./tools/compile.ts",
-    "build:cmd": "deno compile --no-terminal --allow-read --allow-write --allow-ffi --allow-env --allow-net --icon ./res/icon.ico --output ./sample/main.exe sample/main.ts",
+    "build:cmd": "deno compile --no-terminal --allow-read --allow-write --allow-ffi --allow-env --allow-net --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
     "prepare": "deno run --allow-read --allow-write --allow-net tools/prepare.ts",
     "prepare:jsr": "deno run --allow-read --allow-write --allow-net jsr:@azulamb/webview2/copy ./sample/",
     "update": {
