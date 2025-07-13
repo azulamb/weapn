@@ -1,3 +1,2 @@
-// TODO: change url
-export { createWebView2, version } from '../../deno_windows_webview2/mod.ts';
-export type { WEBVIEW2_FUNCS } from '../../deno_windows_webview2/mod.ts';
+export { createWebView2, prepareWebview2DLL, version } from '@azulamb/webview2';
+export type * from '@azulamb/webview2';

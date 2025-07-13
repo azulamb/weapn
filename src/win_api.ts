@@ -1,2 +1,2 @@
-// TODO: change url
-export { winApi, WindowClassEx } from '../../deno_winapi/mod.ts';
+export { winApi, WindowClassEx } from '@azulamb/winapi';
+export type * from '@azulamb/winapi';

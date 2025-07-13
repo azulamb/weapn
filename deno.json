@@ -1,10 +1,28 @@
 {
   "tasks": {
     "start": "deno run --allow-read --allow-ffi --allow-env --allow-net sample/main.ts",
-    "build": "deno compile --allow-read --allow-ffi --allow-env --allow-net --output ./sample/main.exe sample/main.ts",
+    "build": "deno run --allow-run ./tools/compile.ts",
+    "build:cmd": "deno compile --no-terminal --allow-read --allow-write --allow-ffi --allow-env --allow-net --icon ./res/icon.ico --output ./sample/main.exe sample/main.ts",
+    "prepare": "deno run --allow-read --allow-write --allow-net tools/prepare.ts",
+    "prepare:jsr": "deno run --allow-read --allow-write --allow-net jsr:@azulamb/webview2/copy ./sample/",
     "update": {
       "command": "deno fmt",
       "dependencies": ["convert", "version"]
+    },
+    "icon:16": "inkscape --export-type=png --export-filename=./res/icon_16.png --export-width=16 --export-height=16 ./res/icon.svg",
+    "icon:24": "inkscape --export-type=png --export-filename=./res/icon_24.png --export-width=24 --export-height=24 ./res/icon.svg",
+    "icon:32": "inkscape --export-type=png --export-filename=./res/icon_32.png --export-width=32 --export-height=32 ./res/icon.svg",
+    "icon:48": "inkscape --export-type=png --export-filename=./res/icon_48.png --export-width=48 --export-height=48 ./res/icon.svg",
+    "icon:256": "inkscape --export-type=png --export-filename=./res/icon_256.png --export-width=256 --export-height=256 ./res/icon.svg",
+    "icon": {
+      "command": "deno run --allow-read --allow-write jsr:@azulamb/pingico res/icon_16.png res/icon_24.png res/icon_32.png res/icon_48.png res/icon_256.png sample/icon.ico",
+      "dependencies": [
+        "icon:16",
+        "icon:24",
+        "icon:32",
+        "icon:48",
+        "icon:256"
+      ]
     }
   },
   "lock": false,
@@ -13,13 +31,12 @@
   },
   "fmt": {
     "include": ["./sample", "./src", "./tools", "deno.json"],
-    "useTabs": false,
-    "indentWidth": 2,
-    "lineWidth": 160,
-    "semiColons": true,
     "singleQuote": true
   },
   "imports": {
-    "_deno_winapi": "../../deno_winapi/mod.ts"
+    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.2.5",
+    "_@azulamb/webview2": "../deno_windows_webview2/mod.ts",
+    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.1.6",
+    "_@azulamb/winapi": "../deno_winapi/mod.ts"
   }
 }

@@ -1,0 +1,23 @@
+import { compile } from '../../deno_windows_webview2/tools/compile.ts';
+
+const result = await compile([
+  '--allow-read',
+  '--allow-env',
+  '--allow-net',
+  '--no-terminal',
+  '--icon',
+  './res/icon.ico',
+  '--output',
+  './sample/main.exe',
+  'sample/main.ts',
+], {
+  dllPath: './webview2.dll',
+});
+
+console.log(result.command.join(' '));
+console.log(result.stdout);
+
+if (result.stderr) {
+  console.error(result.stderr);
+  Deno.exit(1);
+}
