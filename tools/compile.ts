@@ -6,12 +6,12 @@ const result = await compile([
   '--allow-net',
   '--no-terminal',
   '--icon',
-  './res/icon.ico',
+  './sample/icon.ico',
   '--output',
   './sample/main.exe',
   'sample/main.ts',
 ], {
-  dllPath: './webview2.dll',
+  dllPath: './sample/webview2.dll',
 });
 
 console.log(result.command.join(' '));
