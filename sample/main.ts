@@ -1,4 +1,4 @@
-import { WeapnApp } from '../mod.ts';
+import { IconDirectory, WeapnApp } from '../mod.ts';
 import { dirname, fromFileUrl, join } from 'jsr:@std/path@^1.0.8';
 
 const IS_COMPILED = (() => {
@@ -21,6 +21,14 @@ Deno.env.set('WEBVIEW2_USER_DATA_FOLDER', join(baseDir, '.\\cache'));
 //const webview2DllPath = join(dirname(fromFileUrl(new URL(import.meta.url))), '../webview2/x64/Release/webview2.dll');
 
 const app = new WeapnApp();
+
+/*app.window.setIcon(
+  ...await Promise.all(['./icon_small.ico', './icon_big.ico'].map(async (icon) => {
+    const buffer = Deno.readFileSync(new URL(import.meta.resolve(icon)));
+    const icons = await IconDirectory.loadFromBuffer(buffer)
+    return icons.icon(0).buffer;
+  })),
+);*/
 
 //console.log(webview2DllPath);
 //console.log(import.meta.resolve('./test'));

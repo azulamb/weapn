@@ -3,14 +3,18 @@ import { createWebView2 } from './webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
 import type { WebView2 } from './webview2.ts';
 import type {
+  HICON,
   HINSTANCE,
   HRESULT,
   HWND,
   LPARAM,
   LPVOID,
+  PBYTE,
   UINT,
   WPARAM,
 } from './win_api.ts';
+import { IconDirectory } from './icon.ts';
+import { LoadMultiIconFromIconGroupResource } from './support/icon_loader.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
@@ -18,6 +22,9 @@ export class WebViewWindow {
   protected styleEx: number;
   protected windowClassEx: WindowClassEx;
   protected windowHandle!: HWND;
+  protected hIcons: (HICON | null)[] = [null, null]; // SmallIcon, BigIcon
+  protected iconResource: (PBYTE | undefined)[] = [];
+
   protected _webview2!: WebView2;
   protected token: EventRegistrationToken;
   protected prepared: Promise<void>;
@@ -27,24 +34,49 @@ export class WebViewWindow {
   };
   protected status: WEB_VIEW_WINDOW_STATUS = 'PREPARE';
 
-  public isPrepared() {
-    return this.status === 'RUNNING';
-  }
-
-  constructor(hInstance: HINSTANCE) {
+  constructor() {
+    this.token = new EventRegistrationToken();
     this.prepared = new Promise<void>((success, failure) => {
       this.prepareFuncs = {
         success: success,
         failure: failure,
       };
     });
-    this.windowClassEx = winApi.create.windowClassEx();
+
     this.style = winApi.create.windowStyle({
       WS_VISIBLE: true,
       WS_OVERLAPPEDWINDOW: true,
     });
-    this.token = new EventRegistrationToken();
 
+    this.styleEx = winApi.create.windowStyleEx({});
+
+    this.windowClassEx = winApi.create.windowClassEx();
+
+    try {
+      const iconDirectory = LoadMultiIconFromIconGroupResource('MAINICON');
+      for (const icon of iconDirectory) {
+        if (icon.width === 16 && icon.height === 16) {
+          this.hIcons[0] = winApi.user.CreateIconFromResourceEx(
+            Deno.UnsafePointer.of(icon.buffer),
+            icon.buffer.byteLength,
+          );
+        } else if (icon.width === 32 && icon.height === 32) {
+          this.hIcons[1] = winApi.user.CreateIconFromResourceEx(
+            Deno.UnsafePointer.of(icon.buffer),
+            icon.buffer.byteLength,
+          );
+        }
+      }
+    } catch (_error) {
+      console.warn('Failed to load icon from resource MAINICON');
+    }
+  }
+
+  public isPrepared() {
+    return this.status === 'RUNNING';
+  }
+
+  public init(hInstance: HINSTANCE) {
     this.windowClass.hInstance = hInstance;
     this.windowClass.style = winApi.create.classStyle({
       CS_HREDRAW: true,
@@ -76,17 +108,31 @@ export class WebViewWindow {
     this.windowClass.cbWndExtra = 0;
     //this.windowClassEx.lpszMenuName
     this.windowClass.setClassName('WeapnAppWindow');
-    // Set deno icon.
-    this.windowClass.hIcon = winApi.user.LoadIcon(
-      hInstance,
-      winApi.macro.MAKEINTRESOURCE(1n),
-    );
-    this.windowClass.hIconSm = winApi.user.LoadIcon(
-      hInstance,
-      winApi.macro.MAKEINTRESOURCE(1n),
-    );
 
-    this.styleEx = winApi.create.windowStyleEx({});
+    console.log(this.hIcons);
+    // Big icon.
+    if (this.hIcons[1]) {
+      console.log(this.hIcons[1]);
+      this.windowClass.hIcon = this.hIcons[1];
+    } else {
+      // Set deno icon. (Run mode.)
+      this.windowClass.hIcon = winApi.user.LoadIcon(
+        hInstance,
+        winApi.macro.MAKEINTRESOURCE(1n),
+      );
+    }
+
+    // Small icon.
+    if (this.hIcons[0]) {
+      console.log(this.hIcons[0]);
+      this.windowClass.hIcon = this.hIcons[0];
+    } else {
+      // Set deno icon. (Run mode.)
+      this.windowClass.hIconSm = winApi.user.LoadIcon(
+        hInstance,
+        winApi.macro.MAKEINTRESOURCE(1n),
+      );
+    }
   }
 
   public onPrepared() {
@@ -211,5 +257,31 @@ export class WebViewWindow {
     const bounds = winApi.create.rect();
     winApi.user.GetClientRect(this.windowHandle, bounds.pointer);
     this.webview2.Bounds = bounds;
+  }
+
+  public setIcon(smallIcon?: Uint8Array, bigIcon?: Uint8Array) {
+    [smallIcon, bigIcon].forEach((icon, index) => {
+      if (!icon) {
+        return;
+      }
+      console.log(icon);
+      this.iconResource[index] = Deno.UnsafePointer.of(icon);
+      console.log(this.iconResource[index], icon.byteLength);
+      this.hIcons[index] = winApi.user.CreateIconFromResourceEx(
+        this.iconResource[index],
+        icon.byteLength,
+        true,
+      );
+      console.log(`err: ${winApi.kernel.GetLastError()}`);
+      if (!this.isPrepared()) {
+        return;
+      }
+      winApi.user.SendMessage(
+        this.windowHandle,
+        winApi.windowMassage.WM_SETICON,
+        Deno.UnsafePointer.create(BigInt(index)), // ICON_SMALL = 0, ICON_BIG = 1
+        this.hIcons[index],
+      );
+    });
   }
 }

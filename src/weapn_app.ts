@@ -3,7 +3,15 @@ import { winApi } from './win_api.ts';
 import { PREPARE_WEBVIEW2_DLL_OPTION, prepareWebview2DLL } from './webview2.ts';
 
 export class WeapnApp {
-  protected win!: WebViewWindow;
+  protected win: WebViewWindow;
+
+  constructor() {
+    this.win = new WebViewWindow();
+  }
+
+  public get window() {
+    return this.win;
+  }
 
   public get webview2() {
     return this.win.webview2;
@@ -15,7 +23,7 @@ export class WeapnApp {
     } & PREPARE_WEBVIEW2_DLL_OPTION,
   ) {
     const hInstance = winApi.kernel.GetModuleHandle();
-    this.win = new WebViewWindow(hInstance);
+    this.win.init(hInstance);
 
     const webView2DllPath = option?.webView2DllPath || './webview2.dll';
     const dllInfo = await prepareWebview2DLL(webView2DllPath, option);

@@ -2,7 +2,8 @@
   "tasks": {
     "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net sample/main.ts",
     "build": "deno run --allow-read --allow-write --allow-net --allow-run ./tools/compile.ts",
-    "build:cmd": "deno compile --no-terminal --allow-read --allow-write --allow-ffi --allow-env --allow-net --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
+    "build:cmd": "deno compile --no-terminal --allow-read --allow-write --allow-ffi --allow-env --allow-net --include sample/icon_big.ico --include ./sample/icon_small.ico --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
+    "build:terminal": "deno compile --allow-read --allow-write --allow-ffi --allow-env --allow-net --include sample/icon_big.ico --include ./sample/icon_small.ico --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
     "prepare": "deno run --allow-read --allow-write --allow-net tools/prepare.ts",
     "prepare:jsr": "deno run --allow-read --allow-write --allow-net jsr:@azulamb/webview2/copy ./sample/",
     "update": {
@@ -15,7 +16,7 @@
     "png:48": "inkscape --export-type=png --export-filename=./res/icon_48.png --export-width=48 --export-height=48 ./res/icon.svg",
     "png:256": "inkscape --export-type=png --export-filename=./res/icon_256.png --export-width=256 --export-height=256 ./res/icon.svg",
     "icon:small": "deno run --allow-read --allow-write jsr:@azulamb/pingico@0.1.1 res/icon_16.png sample/icon_small.ico",
-    "icon:normal": "deno run --allow-read --allow-write jsr:@azulamb/pingico@0.1.1 res/icon_32.png sample/icon_normal.ico",
+    "icon:big": "deno run --allow-read --allow-write jsr:@azulamb/pingico@0.1.1 res/icon_32.png sample/icon_big.ico",
     "icon": {
       "command": "deno run --allow-read --allow-write jsr:@azulamb/pingico@0.1.1 res/icon_16.png res/icon_24.png res/icon_32.png res/icon_48.png res/icon_256.png sample/icon.ico",
       "dependencies": [
@@ -25,7 +26,7 @@
         "png:48",
         "png:256",
         "icon:small",
-        "icon:normal"
+        "icon:big"
       ]
     }
   },
@@ -40,7 +41,7 @@
   "imports": {
     "@azulamb/webview2": "jsr:@azulamb/webview2@^0.2.9",
     "_@azulamb/webview2": "../deno_windows_webview2/mod.ts",
-    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.1.6",
+    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.1.14",
     "_@azulamb/winapi": "../deno_winapi/mod.ts"
   }
 }

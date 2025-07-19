@@ -1,3 +1,4 @@
 cache/
 tmp/
 *.dll
+*.ico
