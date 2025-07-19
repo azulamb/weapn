@@ -3,7 +3,13 @@
 ## Environment
 
 * Deno
-  * `^2.4.1`
+  * `^2.4.2`
+* @azulamb/webview2
+  * https://jsr.io/@azulamb/webview2
+  * webview2.dll and wrapper.
+* @azulamb/winapi
+  * https://jsr.io/@azulamb/winapi
+  * Windows API wrapper.
 
 ## Build
 
@@ -28,7 +34,5 @@ deno task build
 ### TODO
 
 * DLLのサイズとMD5
-* ビルドコマンド作成ツール
-  * DLLをincludeするオプションの追加
-  * フラグによってはincludeしなかったりWebからDLできるようにする
-  * DLLのサイズとMD5チェックをする
+* DLLのバージョン指定
+  * バージョンはライブラリのタグベース。

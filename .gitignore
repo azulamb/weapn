@@ -1,4 +1,4 @@
-cache/
+.cache/
 tmp/
 *.dll
 *.ico

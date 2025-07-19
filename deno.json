@@ -41,7 +41,7 @@
   "imports": {
     "@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.0",
     "_@azulamb/webview2": "../deno_windows_webview2/mod.ts",
-    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.1.14",
+    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.1.15",
     "_@azulamb/winapi": "../deno_winapi/mod.ts"
   }
 }

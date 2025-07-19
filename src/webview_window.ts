@@ -13,7 +13,6 @@ import type {
   UINT,
   WPARAM,
 } from './win_api.ts';
-import { IconDirectory } from './icon.ts';
 import { LoadMultiIconFromIconGroupResource } from './support/icon_loader.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
