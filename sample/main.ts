@@ -1,4 +1,4 @@
-import { IconDirectory, WeapnApp } from '../mod.ts';
+import { WeapnApp } from '../mod.ts';
 import { dirname, fromFileUrl, join } from 'jsr:@std/path@^1.0.8';
 
 const IS_COMPILED = (() => {
