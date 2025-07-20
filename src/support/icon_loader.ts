@@ -1,6 +1,12 @@
 import { HMODULE, winApi } from '../win_api.ts';
 import { Icon, IconDirectory } from '../icon.ts';
 
+/**
+ * Load multiple icons from a resource group.
+ * @param resourceName The name of the icon group resource.
+ * @param hModule The module handle. If not provided, uses the current module.
+ * @returns An IconDirectory containing the loaded icons.
+ */
 export function LoadMultiIconFromIconGroupResource(
   resourceName: string,
   hModule?: HMODULE,

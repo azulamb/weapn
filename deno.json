@@ -1,4 +1,8 @@
 {
+  "name": "@azulamb/weapn",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./mod.ts",
   "tasks": {
     "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net sample/main.ts",
     "build": "deno run --allow-read --allow-write --allow-net --allow-run ./tools/compile.ts",

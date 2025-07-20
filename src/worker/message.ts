@@ -22,13 +22,26 @@ export class WeapnMessage {
     this.setOtherMessageHandlers(() => {});
   }
 
-  public setOtherMessageHandlers(handler: (event: MessageEvent) => unknown) {
+  /**
+   * Set the other message handlers.
+   * @param handler The handler function to handle other messages.
+   */
+  public setOtherMessageHandlers(
+    handler: (event: MessageEvent) => unknown,
+  ): this {
     this.otherMessageHandlers = handler;
+    return this;
   }
 
-  public Navigate(url: string) {
+  /**
+   * Send a message to the worker.
+   * @param url The URL to navigate to.
+   * @returns The WeapnWorkerMessage instance.
+   */
+  public Navigate(url: string): this {
     const message: WeapnWorkerMessage = { type: 'navigate', url: url };
     this.worker.postMessage(message);
+    return this;
   }
 
   protected onMessage(event: MessageEvent) {
@@ -38,13 +51,23 @@ export class WeapnMessage {
     this.otherMessageHandlers(event);
   }
 
-  public start() {
+  /**
+   * Start the worker.
+   * @returns The WeapnMessage instance.
+   */
+  public start(): this {
     this.worker.onmessage = (event) => {
       this.onMessage(event);
     };
+    return this;
   }
 
-  public stop() {
+  /**
+   * Stop the worker.
+   * @returns The WeapnMessage instance.
+   */
+  public stop(): this {
     this.worker.terminate();
+    return this;
   }
 }

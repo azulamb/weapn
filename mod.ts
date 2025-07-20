@@ -1,4 +1,6 @@
-export const VERSION = '0.0.1';
+import data from './deno.json' with { type: 'json' };
+
+export const VERSION = data.version;
 export * from './src/weapn_app.ts';
 export * from './src/weapn_worker.ts';
 

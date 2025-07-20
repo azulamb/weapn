@@ -1,14 +1,6 @@
 import { WeapnApp } from '../mod.ts';
 
-try {
-  const stat = Deno.statSync(new URL(import.meta.url));
-  console.log(new URL(import.meta.url));
-  console.log(stat);
-} catch (_error) {
-  console.log(null);
-}
-
-const app = new WeapnApp(new URL(import.meta.url));
+const app = new WeapnApp(import.meta, { logger: console });
 app.setUserDataFolder();
 
 await app.init({

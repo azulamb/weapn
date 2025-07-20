@@ -1,5 +1,5 @@
-import { WeapnApp } from './weapn_app.ts';
-import { WeapnWorkerMessage } from './worker_message.ts';
+import type { WeapnApp } from './weapn_app.ts';
+import type { WeapnWorkerMessage } from './worker/message.ts';
 
 export class WeapnInWorker {
   protected worker: Worker;

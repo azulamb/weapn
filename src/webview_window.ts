@@ -1,4 +1,4 @@
-import { winApi, WindowClassEx } from './win_api.ts';
+import { winApi, type WindowClassEx } from './win_api.ts';
 import { createWebView2 } from './webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
 import type { WebView2 } from './webview2.ts';
@@ -17,30 +17,26 @@ import { LoadMultiIconFromIconGroupResource } from './support/icon_loader.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
+  protected logger: WeapnLogger;
+
   protected style: number;
   protected styleEx: number;
   protected windowClassEx: WindowClassEx;
-  protected windowHandle!: HWND;
+  protected hWindow: HWND = null;
   protected hIcons: (HICON | null)[] = [null, null]; // SmallIcon, BigIcon
   protected iconResource: (PBYTE | undefined)[] = [];
 
   protected _webview2!: WebView2;
   protected token: EventRegistrationToken;
-  protected prepared: Promise<void>;
-  protected prepareFuncs!: {
-    success: () => void;
-    failure: (error: Error) => void;
-  };
   protected status: WEB_VIEW_WINDOW_STATUS = 'PREPARE';
 
-  constructor() {
+  /**
+   * @param logger Logger instance to log messages.
+   */
+  constructor(logger: WeapnLogger) {
+    this.logger = logger;
+
     this.token = new EventRegistrationToken();
-    this.prepared = new Promise<void>((success, failure) => {
-      this.prepareFuncs = {
-        success: success,
-        failure: failure,
-      };
-    });
 
     this.style = winApi.create.windowStyle({
       WS_VISIBLE: true,
@@ -59,23 +55,36 @@ export class WebViewWindow {
             Deno.UnsafePointer.of(icon.buffer),
             icon.buffer.byteLength,
           );
+          this.logger.info('Load icon[small]: From resource MAINICON');
         } else if (icon.width === 32 && icon.height === 32) {
           this.hIcons[1] = winApi.user.CreateIconFromResourceEx(
             Deno.UnsafePointer.of(icon.buffer),
             icon.buffer.byteLength,
           );
+          this.logger.info('Load icon[big]: From resource MAINICON');
         }
       }
     } catch (_error) {
-      console.warn('Failed to load icon from resource MAINICON');
+      this.logger.warn('Failed to load icon from resource MAINICON');
     }
   }
 
-  public isPrepared() {
+  /**
+   * Check if the WebView2 is prepared.
+   * @returns true if the WebView2 is prepared.
+   */
+  public isPrepared(): boolean {
     return this.status === 'RUNNING';
   }
 
-  public init(hInstance: HINSTANCE) {
+  /**
+   * Initialize the WebView2 window.
+   * @param hInstance The instance handle of the application.
+   * @returns The WebViewWindow instance.
+   */
+  public init(hInstance: HINSTANCE): this {
+    // TODO: Set Original WindowProc
+
     this.windowClass.hInstance = hInstance;
     this.windowClass.style = winApi.create.classStyle({
       CS_HREDRAW: true,
@@ -87,10 +96,10 @@ export class WebViewWindow {
       (hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) => {
         switch (Msg) {
           case winApi.windowMassage.WM_CREATE:
-            console.log('Create');
+            this.logger.log('Create window:');
             break;
           case winApi.windowMassage.WM_DESTROY:
-            console.log('Destroy');
+            this.logger.log('Destroy window:');
             winApi.user.PostQuitMessage(0);
             break;
           case winApi.windowMassage.WM_SIZE:
@@ -100,21 +109,19 @@ export class WebViewWindow {
         return winApi.user.DefWindowProc(hWnd, Msg, wParam, lParam);
       },
     );
+
     //this.windowClassEx.hCursor
     this.windowClass.hbrBackground = Deno.UnsafePointer.create(BigInt(5 + 1));
 
     this.windowClass.cbClsExtra = 0;
     this.windowClass.cbWndExtra = 0;
-    //this.windowClassEx.lpszMenuName
     this.windowClass.setClassName('WeapnAppWindow');
 
-    console.log(this.hIcons);
     // Big icon.
     if (this.hIcons[1]) {
-      console.log(this.hIcons[1]);
       this.windowClass.hIcon = this.hIcons[1];
     } else {
-      // Set deno icon. (Run mode.)
+      // Set deno icon. (Development mode.)
       this.windowClass.hIcon = winApi.user.LoadIcon(
         hInstance,
         winApi.macro.MAKEINTRESOURCE(1n),
@@ -123,30 +130,40 @@ export class WebViewWindow {
 
     // Small icon.
     if (this.hIcons[0]) {
-      console.log(this.hIcons[0]);
       this.windowClass.hIcon = this.hIcons[0];
     } else {
-      // Set deno icon. (Run mode.)
+      // Set deno icon. (Development mode.)
       this.windowClass.hIconSm = winApi.user.LoadIcon(
         hInstance,
         winApi.macro.MAKEINTRESOURCE(1n),
       );
     }
+
+    return this;
   }
 
-  public onPrepared() {
-    return this.prepared;
-  }
-
-  get windowClass() {
+  /**
+   * Get the window class.
+   * @returns The WindowClassEx.
+   */
+  get windowClass(): WindowClassEx {
     return this.windowClassEx;
   }
 
-  getWindowHandle(): HWND {
-    return this.windowHandle;
+  /**
+   * Get the window handle.
+   * @returns The HWND.
+   */
+  get windowHandle(): HWND {
+    return this.hWindow;
   }
 
-  public initWindow() {
+  /**
+   * Set the user data folder for WebView2.
+   * @param dir The directory path to set as the user data folder.
+   * @returns The WebViewWindow instance.
+   */
+  public initWindow(): this {
     // Register WindowClassEx
     const result = winApi.user.RegisterClassEx(this.windowClass.pointer);
     if (!result) {
@@ -154,10 +171,15 @@ export class WebViewWindow {
         `Failure RegisterClassEx. [GetLastError=${winApi.kernel.GetLastError()}]`,
       );
     }
+    return this;
   }
 
-  public createWindow() {
-    this.windowHandle = winApi.user.CreateWindowEx(
+  /**
+   * Create the window.
+   * @returns The WebViewWindow instance.
+   */
+  public createWindow(): this {
+    this.hWindow = winApi.user.CreateWindowEx(
       this.styleEx,
       this.windowClass.lpszClassName,
       winApi.create.stringPointer('test'),
@@ -172,21 +194,35 @@ export class WebViewWindow {
     if (this.windowHandle === null) {
       throw new Error('Failure CreateWindowEx');
     }
+    return this;
   }
 
   public show() {}
 
+  /**
+   * Get the WebView2 instance.
+   * @returns The WebView2 instance.
+   */
   public get webview2() {
     return this._webview2;
   }
 
-  public loadDll(dllPath?: string) {
+  /**
+   * Load the WebView2 DLL.
+   * @param dllPath The path to the WebView2 DLL.
+   * @returns The WebView2 instance.
+   */
+  public loadDll(dllPath?: string): WebView2 | null {
     this._webview2 = createWebView2(dllPath);
     return this.webview2;
   }
 
-  public initWebView() {
-    console.log('initWebView');
+  /**
+   * Initialize the WebView2.
+   * @returns The WebViewWindow instance.
+   */
+  public initWebView(): this {
+    this.logger.info('Init WebView:');
     //this.webview2Connector = this.webview2.CreateWebView2Connector(null);
     this.webview2.CreateCoreWebView2EnvironmentWithOptions(
       null,
@@ -196,16 +232,22 @@ export class WebViewWindow {
         errorCode: HRESULT,
         createdEnvironment: LPVOID,
       ) => {
-        console.log(errorCode);
         return this.createWebView(errorCode, createdEnvironment);
       },
     );
+    return this;
   }
 
+  /**
+   * Create the WebView2 controller.
+   * @param _errorCode The error code from the WebView2 creation.
+   * @param _createdEnvironment The created environment pointer.
+   * @returns The HRESULT indicating success or failure.
+   */
   public createWebView(
     _errorCode: HRESULT,
     _createdEnvironment: LPVOID,
-  ) {
+  ): number {
     return this.webview2.CreateCoreWebView2Controller(
       this.windowHandle,
       (
@@ -221,7 +263,7 @@ export class WebViewWindow {
             this.token.pointer
           );*/
         }
-        console.log('CreateCoreWebView2Controller: created');
+        this.logger.info('CreateCoreWebView2Controller: created');
 
         this.webview2.Settings();
         this.webview2.InitSettings();
@@ -239,17 +281,16 @@ export class WebViewWindow {
         this.webview2.IsZoomControlEnabled = true;
 
         //this.webview2.Navigate('https://www.google.co.jp/');
-        this.prepareFuncs.success();
         this.status = 'RUNNING';
 
-        console.log('CreateCoreWebView2Controller: end');
+        this.logger.info('CreateCoreWebView2Controller: end');
         return 0;
       },
     );
   }
 
   protected onResizeScreen() {
-    console.log('OnResizeScreen');
+    this.logger.info('OnResizeScreen:');
     if (!this.webview2) {
       return;
     }
@@ -258,20 +299,23 @@ export class WebViewWindow {
     this.webview2.Bounds = bounds;
   }
 
-  public setIcon(smallIcon?: Uint8Array, bigIcon?: Uint8Array) {
+  /**
+   * Set the window icon.
+   * @param smallIcon The small icon image data. (16x16)
+   * @param bigIcon The big icon image data. (32x32)
+   * @returns The WebViewWindow instance.
+   */
+  public setIcon(smallIcon?: Uint8Array, bigIcon?: Uint8Array): this {
     [smallIcon, bigIcon].forEach((icon, index) => {
       if (!icon) {
         return;
       }
-      console.log(icon);
       this.iconResource[index] = Deno.UnsafePointer.of(icon);
-      console.log(this.iconResource[index], icon.byteLength);
       this.hIcons[index] = winApi.user.CreateIconFromResourceEx(
         this.iconResource[index],
         icon.byteLength,
         true,
       );
-      console.log(`err: ${winApi.kernel.GetLastError()}`);
       if (!this.isPrepared()) {
         return;
       }
@@ -282,5 +326,6 @@ export class WebViewWindow {
         this.hIcons[index],
       );
     });
+    return this;
   }
 }

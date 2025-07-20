@@ -1,5 +1,8 @@
 // https://learn.microsoft.com/ja-jp/windows/win32/api/eventtoken/ns-eventtoken-eventregistrationtoken
 type EventRegistrationTokenPointerValue = Deno.PointerValue<Uint8Array>;
+/**
+ * Event registration token.
+ */
 export class EventRegistrationToken {
   public data: Uint8Array;
   protected dataView: DataView;
@@ -17,7 +20,10 @@ export class EventRegistrationToken {
     this.endian = new Uint8Array(Uint16Array.of(1).buffer)[0] === 1;
   }
 
-  get pointer() {
+  /**
+   * Get the pointer value.
+   */
+  get pointer(): EventRegistrationTokenPointerValue {
     return this.dataPointer;
   }
 }

@@ -1,3 +1,6 @@
+/**
+ * Icon.
+ */
 export class Icon {
   constructor(
     readonly width: number,
@@ -10,7 +13,15 @@ export class Icon {
   }
 }
 
+/**
+ * Icon directory.
+ */
 export class IconDirectory {
+  /**
+   * Load icons from a buffer.
+   * @param buffer The buffer containing the icon data.
+   * @returns The IconDirectory instance.
+   */
   static async loadFromBuffer(
     buffer: Uint8Array | ArrayBuffer | Blob,
   ): Promise<IconDirectory> {
@@ -34,6 +45,11 @@ export class IconDirectory {
   constructor() {
   }
 
+  /**
+   * Load icons from an icon file.
+   * @param iconBuffer The buffer containing the icon file data.
+   * @returns The IconDirectory instance.
+   */
   public loadFromIconFile(iconBuffer: Uint8Array): this {
     const data = new DataView(iconBuffer.buffer, 0, iconBuffer.byteLength);
     if (data.getUint16(0, true) !== 0) {
@@ -74,10 +90,20 @@ export class IconDirectory {
     return this;
   }
 
+  /**
+   * Get the number of icons in the directory.
+   * @returns The number of icons.
+   */
   get length() {
     return this.icons.length;
   }
 
+  /**
+   * Get the icon at the specified index.
+   * @param index The index of the icon.
+   * @returns The Icon instance.
+   * @throws {RangeError} If the index is out of range.
+   */
   public icon(index: number): Icon {
     if (index < 0 || this.icons.length <= index) {
       throw new RangeError('Icon index out of range');
@@ -85,8 +111,13 @@ export class IconDirectory {
     return this.icons[index];
   }
 
-  public addIcon(icon: Icon): this {
-    this.icons.push(icon);
+  /**
+   * Add icons to the directory.
+   * @param icons The Icon instances to add.
+   * @returns The IconDirectory instance.
+   */
+  public addIcon(...icons: Icon[]): this {
+    this.icons.push(...icons);
     return this;
   }
 
