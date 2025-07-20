@@ -1,8 +1,12 @@
 import { WebViewWindow } from './webview_window.ts';
-import { winApi } from './win_api.ts';
-import { PREPARE_WEBVIEW2_DLL_OPTION, prepareWebview2DLL } from './webview2.ts';
+import { winApi } from './libs/win_api.ts';
+import {
+  type PREPARE_WEBVIEW2_DLL_OPTION,
+  prepareWebview2DLL,
+} from './libs/webview2.ts';
 import { isCompiled } from './support/compile.ts';
 import { dirname, fromFileUrl, isAbsolute, join } from 'jsr:@std/path@^1.0.8';
+import type { WeapnLogger } from './types.ts';
 
 /**
  * WeapnApp is the main application class for Weapn.
@@ -49,7 +53,7 @@ export class WeapnApp {
         : dirname(fromFileUrl(this.url));
       dir = join(baseDir, dir);
     }
-    winApi.user.MessageBoxEx(null, `${this.compiled} ${dir}`, 'title');
+    // winApi.user.MessageBoxEx(null, `${this.compiled} ${dir}`, 'title');
     Deno.env.set('WEBVIEW2_USER_DATA_FOLDER', dir);
     this.logger.info(`Set WEBVIEW2_USER_DATA_FOLDER: ${dir}`);
     return this;

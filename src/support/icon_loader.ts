@@ -1,5 +1,5 @@
-import { HMODULE, winApi } from '../win_api.ts';
-import { Icon, IconDirectory } from '../icon.ts';
+import { type HMODULE, winApi } from '../libs/win_api.ts';
+import { Icon, IconDirectory } from '../libs/icon.ts';
 
 /**
  * Load multiple icons from a resource group.

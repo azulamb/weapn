@@ -1,7 +1,7 @@
-import { winApi, type WindowClassEx } from './win_api.ts';
-import { createWebView2 } from './webview2.ts';
+import { winApi, type WindowClassEx } from './libs/win_api.ts';
+import { createWebView2 } from './libs/webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
-import type { WebView2 } from './webview2.ts';
+import type { WebView2 } from './libs/webview2.ts';
 import type {
   HICON,
   HINSTANCE,
@@ -12,8 +12,9 @@ import type {
   PBYTE,
   UINT,
   WPARAM,
-} from './win_api.ts';
+} from './libs/win_api.ts';
 import { LoadMultiIconFromIconGroupResource } from './support/icon_loader.ts';
+import type { WeapnLogger } from './types.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
