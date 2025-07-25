@@ -8,21 +8,29 @@ import { isCompiled } from './support/compile.ts';
 import { dirname, fromFileUrl, isAbsolute, join } from 'jsr:@std/path@^1.0.8';
 import type { WeapnLogger } from './types.ts';
 
+type ImportMeta = {
+  url: string;
+  resolve: (specifier: string) => string;
+};
+
 /**
  * WeapnApp is the main application class for Weapn.
  */
 export class WeapnApp {
+  protected meta: ImportMeta;
   protected logger: WeapnLogger;
   protected isCompiled: boolean;
   protected url: URL;
   protected win: WebViewWindow;
+  protected worker?: Worker;
 
   /**
    * @param importMeta Please pass import.meta from the main module.
    */
-  constructor(importMeta: { url: string }, option?: {
+  constructor(importMeta: ImportMeta, option?: {
     logger?: WeapnLogger;
   }) {
+    this.meta = importMeta;
     this.logger = option?.logger || {
       // No output logger.
       log: () => {},
@@ -31,13 +39,50 @@ export class WeapnApp {
       warn: () => {},
       error: () => {},
     };
-    this.url = new URL(importMeta.url);
+    this.url = new URL(this.meta.url);
     this.isCompiled = isCompiled(this.url);
     this.win = new WebViewWindow(this.logger);
     this.logger.info(`App: ${this.url}`);
     this.logger.info(
       `Weapn mode: ${this.isCompiled ? 'compiled' : 'development'}`,
     );
+  }
+
+  /**
+   * Add a worker to the application.
+   * @param workerPath The path to the worker script.
+   * @param options The options for the worker.
+   * @returns The created worker.
+   */
+  public createWorker(
+    workerPath: string,
+    options: WorkerOptions = { type: 'module' },
+  ): Worker {
+    const worker = new Worker(this.meta.resolve(workerPath), options);
+    worker.onmessage = (event) => {
+    };
+    this.registerWorker(worker);
+    return worker;
+  }
+
+  /**
+   * Register a worker to the application.
+   * @param worker The worker to register.
+   * @returns The instance of the WeapnApp.
+   */
+  public registerWorker(worker: Worker): this {
+    if (this.worker === worker) {
+      return this;
+    }
+
+    if (this.worker) {
+      this.logger.warn('Worker already exists, terminating the old worker.');
+      this.worker.terminate();
+    }
+
+    this.worker = worker;
+
+    return this;
   }
 
   /**
@@ -81,6 +126,14 @@ export class WeapnApp {
    */
   public get webview2() {
     return this.win.webview2;
+  }
+
+  /**
+   * Enable or disable the developer tools.
+   * @param enabled True to enable, false to disable.
+   */
+  public set developerToolsEnabled(enabled: boolean) {
+    this.webview2.AreDevToolsEnabled = enabled;
   }
 
   /**
@@ -136,5 +189,10 @@ export class WeapnApp {
       }
     }
     this.logger.log('End loop:');
+    if (this.worker) {
+      this.logger.info('Terminating worker:');
+      this.worker.terminate();
+      this.worker = undefined;
+    }
   }
 }

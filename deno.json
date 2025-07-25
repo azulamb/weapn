@@ -2,12 +2,15 @@
   "name": "@azulamb/weapn",
   "version": "0.1.0",
   "license": "MIT",
-  "exports": "./mod.ts",
+  "exports": {
+    ".": "./mod.ts",
+    "./worker": "./worker.mod.ts"
+  },
   "tasks": {
-    "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net sample/main.ts",
+    "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net ./sample/main.ts",
     "build": "deno run --allow-read --allow-write --allow-net --allow-run ./tools/compile.ts",
-    "build:cmd": "deno compile --allow-ffi --no-terminal --allow-read --allow-write --allow-env --allow-net --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
-    "build:terminal": "deno compile --allow-ffi --allow-read --allow-write --allow-env --allow-net --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
+    "build:cmd": "deno compile --allow-ffi --no-terminal --allow-read --allow-write --allow-env --allow-net --include ./sample/worker.ts --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
+    "build:terminal": "deno compile --allow-ffi --allow-read --allow-write --allow-env --allow-net --include ./sample/worker.ts --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
     "prepare": "deno run --allow-read --allow-write --allow-net tools/prepare.ts",
     "prepare:jsr": "deno run --allow-read --allow-write --allow-net jsr:@azulamb/webview2/copy ./sample/",
     "update": {
@@ -43,9 +46,10 @@
     "singleQuote": true
   },
   "imports": {
-    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.0",
+    "@azulamb/weapn": "./mod.ts",
+    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.8",
     "_@azulamb/webview2": "../deno_windows_webview2/mod.ts",
-    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.1.15",
+    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.2.0",
     "_@azulamb/winapi": "../deno_winapi/mod.ts"
   }
 }

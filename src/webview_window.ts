@@ -1,5 +1,8 @@
 import { winApi, type WindowClassEx } from './libs/win_api.ts';
-import { createWebView2 } from './libs/webview2.ts';
+import {
+  createWebView2,
+  WebMessageReceivedEventArgs,
+} from './libs/webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
 import type { WebView2 } from './libs/webview2.ts';
 import type {
@@ -96,14 +99,14 @@ export class WebViewWindow {
     this.windowClass.setWindowProcedure(
       (hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) => {
         switch (Msg) {
-          case winApi.windowMassage.WM_CREATE:
+          case winApi.windowMessage.WM_CREATE:
             this.logger.log('Create window:');
             break;
-          case winApi.windowMassage.WM_DESTROY:
+          case winApi.windowMessage.WM_DESTROY:
             this.logger.log('Destroy window:');
             winApi.user.PostQuitMessage(0);
             break;
-          case winApi.windowMassage.WM_SIZE:
+          case winApi.windowMessage.WM_SIZE:
             this.onResizeScreen();
             break;
         }
@@ -281,6 +284,22 @@ export class WebViewWindow {
         this.webview2.IsBuiltInErrorPageEnabled = true;
         this.webview2.IsZoomControlEnabled = true;
 
+        this.webview2.add_WebMessageReceived((sender, args) => {
+          const eventArgs = new WebMessageReceivedEventArgs(
+            this.webview2.lib,
+            args,
+          );
+          this.logger.info(`WebMessageReceived:`);
+          this.logger.info(sender);
+          this.logger.info(eventArgs.Source());
+          try {
+            this.logger.info(eventArgs.TryGetWebMessageAsString());
+            //this.logger.info(eventArgs.WebMessageAsJson());
+          } catch (error) {
+            console.error(error);
+          }
+          return 0;
+        });
         //this.webview2.Navigate('https://www.google.co.jp/');
         this.status = 'RUNNING';
 
@@ -322,7 +341,7 @@ export class WebViewWindow {
       }
       winApi.user.SendMessage(
         this.windowHandle,
-        winApi.windowMassage.WM_SETICON,
+        winApi.windowMessage.WM_SETICON,
         Deno.UnsafePointer.create(BigInt(index)), // ICON_SMALL = 0, ICON_BIG = 1
         this.hIcons[index],
       );

@@ -11,7 +11,9 @@ const result = await compile(
   {
     icon: './sample/icon.ico',
     dllPath: './sample/webview2.dll',
-    includes: [],
+    includes: [
+      //'./sample/worker.ts',
+    ],
   },
 );
 
