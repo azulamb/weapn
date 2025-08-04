@@ -4,7 +4,8 @@
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
-    "./worker": "./worker.mod.ts"
+    "./client": "./client.mod.ts",
+    "./types": "./types.ts"
   },
   "tasks": {
     "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net ./sample/main.ts",
@@ -39,17 +40,31 @@
   },
   "lock": false,
   "lint": {
-    "include": ["./sample", "./src", "./tools", "deno.json"]
+    "include": [
+      "./sample",
+      "./src",
+      "./tools",
+      "deno.json",
+      "./*mod.ts",
+      "types.ts"
+    ]
   },
   "fmt": {
-    "include": ["./sample", "./src", "./tools", "deno.json"],
+    "include": [
+      "./sample",
+      "./src",
+      "./tools",
+      "deno.json",
+      "./*mod.ts",
+      "types.ts"
+    ],
     "singleQuote": true
   },
   "imports": {
     "@azulamb/weapn": "./mod.ts",
-    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.8",
+    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.9",
     "_@azulamb/webview2": "../deno_windows_webview2/mod.ts",
-    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.2.0",
+    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.2.1",
     "_@azulamb/winapi": "../deno_winapi/mod.ts"
   }
 }

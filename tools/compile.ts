@@ -2,7 +2,7 @@ import { compile } from '@azulamb/webview2/compile';
 
 const result = await compile(
   'sample/main.ts',
-  './sample/main.exe',
+  './sample.exe',
   [
     '--allow-read',
     '--allow-env',
@@ -10,9 +10,9 @@ const result = await compile(
   ],
   {
     icon: './sample/icon.ico',
-    dllPath: './sample/webview2.dll',
+    dllPath: './webview2.dll',
     includes: [
-      //'./sample/worker.ts',
+      './sample/docs/',
     ],
   },
 );

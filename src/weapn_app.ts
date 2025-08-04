@@ -3,10 +3,13 @@ import { winApi } from './libs/win_api.ts';
 import {
   type PREPARE_WEBVIEW2_DLL_OPTION,
   prepareWebview2DLL,
+  WebMessageReceivedEventArgs,
 } from './libs/webview2.ts';
 import { isCompiled } from './support/compile.ts';
 import { dirname, fromFileUrl, isAbsolute, join } from 'jsr:@std/path@^1.0.8';
 import type { WeapnLogger } from './types.ts';
+import { WeapnMessage } from './libs/message.ts';
+import type { WeapnMessageFromClient } from '@azulamb/weapn/types';
 
 type ImportMeta = {
   url: string;
@@ -23,6 +26,7 @@ export class WeapnApp {
   protected url: URL;
   protected win: WebViewWindow;
   protected worker?: Worker;
+  protected message?: WeapnMessage;
 
   /**
    * @param importMeta Please pass import.meta from the main module.
@@ -46,43 +50,6 @@ export class WeapnApp {
     this.logger.info(
       `Weapn mode: ${this.isCompiled ? 'compiled' : 'development'}`,
     );
-  }
-
-  /**
-   * Add a worker to the application.
-   * @param workerPath The path to the worker script.
-   * @param options The options for the worker.
-   * @returns The created worker.
-   */
-  public createWorker(
-    workerPath: string,
-    options: WorkerOptions = { type: 'module' },
-  ): Worker {
-    const worker = new Worker(this.meta.resolve(workerPath), options);
-    worker.onmessage = (event) => {
-    };
-    this.registerWorker(worker);
-    return worker;
-  }
-
-  /**
-   * Register a worker to the application.
-   * @param worker The worker to register.
-   * @returns The instance of the WeapnApp.
-   */
-  public registerWorker(worker: Worker): this {
-    if (this.worker === worker) {
-      return this;
-    }
-
-    if (this.worker) {
-      this.logger.warn('Worker already exists, terminating the old worker.');
-      this.worker.terminate();
-    }
-
-    this.worker = worker;
-
-    return this;
   }
 
   /**
@@ -155,7 +122,10 @@ export class WeapnApp {
 
     this.win.initWindow();
     this.win.createWindow();
-    this.win.initWebView();
+    this.win.initWebView(() => {
+      this.webview2.AreDevToolsEnabled = !this.isCompiled;
+      this.afterInitWebView();
+    });
 
     this.win.show();
 
@@ -167,6 +137,49 @@ export class WeapnApp {
         break;
       }
     }
+  }
+
+  /**
+   * Set the WeapnMessage.
+   * @param message Set default WeapnMessage if not provided.
+   */
+  public setWeapnMessage(message?: WeapnMessage): this {
+    if (!message) {
+      message = new WeapnMessage();
+    }
+    this.message = message;
+    this.initWeapnMessage();
+
+    return this;
+  }
+
+  protected initWeapnMessage() {
+    if (!(this.message && this.win.isPrepared())) {
+      return;
+    }
+    console.log('Init WeapnMessage:');
+    this.message.setWebview2(this.webview2);
+    this.message.setWindowHandle(this.win.windowHandle);
+    this.webview2.add_WebMessageReceived((sender, args) => {
+      const eventArgs = new WebMessageReceivedEventArgs(
+        this.webview2.lib,
+        args,
+      );
+      const message = eventArgs.WebMessageAsJson<WeapnMessageFromClient>();
+      if (!message) {
+        return 0;
+      }
+
+      return (<WeapnMessage> this.message).receiveMessage({
+        _sender: sender,
+        source: eventArgs.Source(),
+        ...message,
+      });
+    });
+  }
+
+  protected afterInitWebView() {
+    this.initWeapnMessage();
   }
 
   /**

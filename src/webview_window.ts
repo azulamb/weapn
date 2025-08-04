@@ -1,8 +1,5 @@
 import { winApi, type WindowClassEx } from './libs/win_api.ts';
-import {
-  createWebView2,
-  WebMessageReceivedEventArgs,
-} from './libs/webview2.ts';
+import { createWebView2 } from './libs/webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
 import type { WebView2 } from './libs/webview2.ts';
 import type {
@@ -225,7 +222,7 @@ export class WebViewWindow {
    * Initialize the WebView2.
    * @returns The WebViewWindow instance.
    */
-  public initWebView(): this {
+  public initWebView(afterCreateWebView?: () => unknown): this {
     this.logger.info('Init WebView:');
     //this.webview2Connector = this.webview2.CreateWebView2Connector(null);
     this.webview2.CreateCoreWebView2EnvironmentWithOptions(
@@ -236,21 +233,21 @@ export class WebViewWindow {
         errorCode: HRESULT,
         createdEnvironment: LPVOID,
       ) => {
-        return this.createWebView(errorCode, createdEnvironment);
+        const result = this.createWebView(
+          errorCode,
+          createdEnvironment,
+          afterCreateWebView,
+        );
+        return result;
       },
     );
     return this;
   }
 
-  /**
-   * Create the WebView2 controller.
-   * @param _errorCode The error code from the WebView2 creation.
-   * @param _createdEnvironment The created environment pointer.
-   * @returns The HRESULT indicating success or failure.
-   */
-  public createWebView(
+  protected createWebView(
     _errorCode: HRESULT,
     _createdEnvironment: LPVOID,
+    afterCreateWebView?: () => unknown,
   ): number {
     return this.webview2.CreateCoreWebView2Controller(
       this.windowHandle,
@@ -277,31 +274,19 @@ export class WebViewWindow {
         this.webview2.IsScriptEnabled = true;
         this.webview2.IsWebMessageEnabled = true;
         this.webview2.AreDefaultScriptDialogsEnabled = true;
-        this.webview2.AreDevToolsEnabled = true;
+        // this.webview2.AreDevToolsEnabled = false;
         this.webview2.IsStatusBarEnabled = true;
         this.webview2.AreDefaultContextMenusEnabled = true;
         this.webview2.AreHostObjectsAllowed = true;
         this.webview2.IsBuiltInErrorPageEnabled = true;
         this.webview2.IsZoomControlEnabled = true;
 
-        this.webview2.add_WebMessageReceived((sender, args) => {
-          const eventArgs = new WebMessageReceivedEventArgs(
-            this.webview2.lib,
-            args,
-          );
-          this.logger.info(`WebMessageReceived:`);
-          this.logger.info(sender);
-          this.logger.info(eventArgs.Source());
-          try {
-            this.logger.info(eventArgs.TryGetWebMessageAsString());
-            //this.logger.info(eventArgs.WebMessageAsJson());
-          } catch (error) {
-            console.error(error);
-          }
-          return 0;
-        });
-        //this.webview2.Navigate('https://www.google.co.jp/');
+        // this.webview2.Navigate('https://localhost:8000/');
         this.status = 'RUNNING';
+
+        if (afterCreateWebView) {
+          afterCreateWebView();
+        }
 
         this.logger.info('CreateCoreWebView2Controller: end');
         return 0;

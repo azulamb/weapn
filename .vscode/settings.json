@@ -6,6 +6,9 @@
 		"../deno_windows_webview2",
 		"../deno_winapi"
 	],
+	"deno.disablePaths": [
+		"./client.mod.ts"
+	],
 	"deno.importMap": "./deno.json",
 	"cSpell.words": [
 		"azulamb",
