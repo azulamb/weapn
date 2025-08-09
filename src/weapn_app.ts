@@ -27,6 +27,7 @@ export class WeapnApp {
   protected win: WebViewWindow;
   protected worker?: Worker;
   protected message?: WeapnMessage;
+  protected onAfterInitWebView?: () => unknown;
 
   /**
    * @param importMeta Please pass import.meta from the main module.
@@ -52,6 +53,15 @@ export class WeapnApp {
     );
   }
 
+  public setOnAfterInitWebView(callback: () => unknown): this {
+    if (this.win.isPrepared()) {
+      callback();
+    } else {
+      this.onAfterInitWebView = callback;
+    }
+    return this;
+  }
+
   /**
    * Set the user data folder.
    * Use WEBVIEW2_USER_DATA_FOLDER env, so need --allow-env option.
@@ -60,15 +70,19 @@ export class WeapnApp {
    */
   public setUserDataFolder(dir: string = '.\\.cache'): this {
     if (!isAbsolute(dir)) {
-      const baseDir = this.compiled
-        ? dirname(winApi.kernel.GetModuleFileName())
-        : dirname(fromFileUrl(this.url));
-      dir = join(baseDir, dir);
+      dir = this.getAppFolder(dir);
     }
     // winApi.user.MessageBoxEx(null, `${this.compiled} ${dir}`, 'title');
     Deno.env.set('WEBVIEW2_USER_DATA_FOLDER', dir);
     this.logger.info(`Set WEBVIEW2_USER_DATA_FOLDER: ${dir}`);
     return this;
+  }
+
+  public getAppFolder(dir = './', basePath?: string): string {
+    const baseDir = this.compiled
+      ? dirname(winApi.kernel.GetModuleFileName())
+      : (basePath ?? dirname(fromFileUrl(this.url)));
+    return join(baseDir, dir);
   }
 
   /**
@@ -180,6 +194,9 @@ export class WeapnApp {
 
   protected afterInitWebView() {
     this.initWeapnMessage();
+    if (this.onAfterInitWebView) {
+      this.onAfterInitWebView();
+    }
   }
 
   /**

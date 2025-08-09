@@ -9,6 +9,7 @@
   },
   "tasks": {
     "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net ./sample/main.ts",
+    "start:2": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net ./sample2/main.ts",
     "build": "deno run --allow-read --allow-write --allow-net --allow-run ./tools/compile.ts",
     "build:cmd": "deno compile --allow-ffi --no-terminal --allow-read --allow-write --allow-env --allow-net --include ./sample/worker.ts --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
     "build:terminal": "deno compile --allow-ffi --allow-read --allow-write --allow-env --allow-net --include ./sample/worker.ts --icon ./sample/icon.ico --output ./sample/main.exe sample/main.ts",
@@ -41,7 +42,7 @@
   "lock": false,
   "lint": {
     "include": [
-      "./sample",
+      "./sample*",
       "./src",
       "./tools",
       "deno.json",
@@ -51,7 +52,7 @@
   },
   "fmt": {
     "include": [
-      "./sample",
+      "./sample*/**",
       "./src",
       "./tools",
       "deno.json",
@@ -62,8 +63,8 @@
   },
   "imports": {
     "@azulamb/weapn": "./mod.ts",
-    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.9",
-    "_@azulamb/webview2": "../deno_windows_webview2/mod.ts",
+    "_@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.9",
+    "@azulamb/webview2": "../deno_windows_webview2/mod.ts",
     "@azulamb/winapi": "jsr:@azulamb/winapi@^0.2.1",
     "_@azulamb/winapi": "../deno_winapi/mod.ts"
   }
