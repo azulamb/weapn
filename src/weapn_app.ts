@@ -1,15 +1,21 @@
 import { WebViewWindow } from './webview_window.ts';
 import { winApi } from './libs/win_api.ts';
 import {
-  type PREPARE_WEBVIEW2_DLL_OPTION,
   prepareWebview2DLL,
   WebMessageReceivedEventArgs,
+  WebResourceRequestedEventArgs,
+} from './libs/webview2.ts';
+import type {
+  PREPARE_WEBVIEW2_DLL_OPTION,
+  WEAPN_CONFIG,
 } from './libs/webview2.ts';
 import { isCompiled } from './support/compile.ts';
 import { dirname, fromFileUrl, isAbsolute, join } from 'jsr:@std/path@^1.0.8';
 import type { WeapnLogger } from './types.ts';
 import { WeapnMessage } from './libs/message.ts';
 import type { WeapnMessageFromClient } from '@azulamb/weapn/types';
+import { MOVE_FOCUS_REASON } from '../../deno_windows_webview2/src/constants/MOVE_FOCUS_REASON.ts';
+import type { WeapnWorkerMessages } from './worker.ts';
 
 type ImportMeta = {
   url: string;
@@ -114,7 +120,7 @@ export class WeapnApp {
    * @param enabled True to enable, false to disable.
    */
   public set developerToolsEnabled(enabled: boolean) {
-    this.webview2.AreDevToolsEnabled = enabled;
+    this.webview2.settings.areDevToolsEnabled = enabled;
   }
 
   /**
@@ -122,22 +128,40 @@ export class WeapnApp {
    * @param option The options for initializing the WebView2.
    */
   public async init(
-    option?: {
-      webView2DllPath?: string;
-    } & PREPARE_WEBVIEW2_DLL_OPTION,
+    option?:
+      & {
+        webView2DllPath?: string;
+      }
+      & PREPARE_WEBVIEW2_DLL_OPTION
+      & {
+        weapn?: WEAPN_CONFIG;
+      },
   ) {
     const hInstance = winApi.kernel.GetModuleHandle();
     this.win.init(hInstance);
 
     const webView2DllPath = option?.webView2DllPath || './webview2.dll';
-    const dllInfo = await prepareWebview2DLL(webView2DllPath, option);
-    this.logger.info(dllInfo);
-    this.win.loadDll(dllInfo.path);
+    try {
+      const dllInfo = await prepareWebview2DLL(webView2DllPath, option);
+      this.logger.info(dllInfo);
+      this.win.loadDll(dllInfo.path);
+    } catch (error) {
+      this.logger.error(error);
+      winApi.user.MessageBoxEx(
+        null,
+        'webview2.dll not found',
+        'Error',
+        {
+          MB_OK: true,
+        },
+      );
+      Deno.exit(1);
+    }
 
     this.win.initWindow();
-    this.win.createWindow();
+    this.win.createWindow(option?.weapn);
     this.win.initWebView(() => {
-      this.webview2.AreDevToolsEnabled = !this.isCompiled;
+      this.webview2.settings.areDevToolsEnabled = !this.isCompiled;
       this.afterInitWebView();
     });
 
@@ -174,7 +198,7 @@ export class WeapnApp {
     console.log('Init WeapnMessage:');
     this.message.setWebview2(this.webview2);
     this.message.setWindowHandle(this.win.windowHandle);
-    this.webview2.add_WebMessageReceived((sender, args) => {
+    this.webview2.core.addWebMessageReceived((sender, args) => {
       const eventArgs = new WebMessageReceivedEventArgs(
         this.webview2.lib,
         args,
@@ -224,5 +248,87 @@ export class WeapnApp {
       this.worker.terminate();
       this.worker = undefined;
     }
+  }
+
+  //
+
+  public setUrl(url: string): this {
+    this.webview2.core.navigate(url);
+    this.webview2.controllers.moveFocus = MOVE_FOCUS_REASON.PROGRAMMATIC;
+    return this;
+  }
+
+  /*protected sendResponse(
+    args: WebResourceRequestedEventArgs,
+    response: Response,
+  ) {
+    console.log('=======================');
+    console.log(args.Request.Uri);
+    console.log(args.ResourceContextCode);
+    console.log(args.ResourceContext);
+    const content = JStream.create(
+      new ResponseStream(this.webview2.lib).setResponse(response),
+      //new FileResponseStream(this.webview2.lib).setFile(new URL(this.meta.resolve('./docs/index.html')))
+    );
+
+    console.log(`${response.status} ${response.statusText}`);
+    const webview2Response = this.webview2.createWebResourceResponse(
+      content,
+      response.status,
+      //'OK',//
+      response.statusText ? response.statusText : 'Unknown',
+      this.headersToString(response.headers),
+    );
+    args.Response = webview2Response;
+  }*/
+
+  addWebResourceRequested(
+    //callback: (args: WebResourceRequestedEventArgs) => Response,
+    workerPath: string,
+  ) {
+    const worker = new Worker(workerPath, { type: 'module' });
+    const data: WeapnWorkerMessages = {
+      type: 'init',
+      ...this.win.exportData(),
+    };
+    worker.postMessage(data);
+    this.webview2.core.addWebResourceRequested((_sender, eventArgs) => {
+      const message = new WebResourceRequestedEventArgs(
+        this.webview2.lib,
+        eventArgs,
+      );
+      const deferral = message.getDeferral();
+      console.log('Deferral created::::::::::', message.Request.Uri);
+      const data: WeapnWorkerMessages = {
+        type: 'request',
+        eventArgs: Deno.UnsafePointer.value(eventArgs),
+        deferral: Deno.UnsafePointer.value(deferral.getPointer()),
+      };
+      worker.postMessage(data);
+      this.worker = worker;
+
+      /*setTimeout(() => {
+        console.log('waited');
+        try {
+          this.sendResponse(message, callback(message));
+        } catch (_error) {
+          this.sendResponse(
+            message,
+            new Response(
+              '500 Internal Server Error',
+              {
+                status: 500,
+                statusText: 'Internal Server Error',
+              },
+            ),
+          );
+        }
+        console.log('complete');
+        deferral.complete();
+      }, 5000);*/
+
+      console.log('end on requested.');
+      return 0;
+    });
   }
 }

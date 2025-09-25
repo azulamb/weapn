@@ -15,7 +15,7 @@ await app.init({
 });
 app.developerToolsEnabled = true;
 
-app.webview2.SetVirtualHostNameToFolderMapping(
+app.webview2.core.setVirtualHostNameToFolderMapping(
   'app.local',
   // Target is PROJECT_DIR/docs/
   // Source file is PROJECT_DIR/sample2/main.ts, but start in PROJECT_DIR/
@@ -26,6 +26,6 @@ app.webview2.SetVirtualHostNameToFolderMapping(
     allow: true,
   },
 );
-app.webview2.Navigate('https://app.local/index.html');
+app.setUrl('https://app.local/index.html');
 
 app.run();

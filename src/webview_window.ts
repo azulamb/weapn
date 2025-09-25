@@ -1,7 +1,7 @@
 import { winApi, type WindowClassEx } from './libs/win_api.ts';
 import { createWebView2 } from './libs/webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
-import type { WebView2 } from './libs/webview2.ts';
+import type { WEAPN_CONFIG, WebView2 } from './libs/webview2.ts';
 import type {
   HICON,
   HINSTANCE,
@@ -19,6 +19,8 @@ type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
   protected logger: WeapnLogger;
+
+  protected dllPath?: string;
 
   protected style: number;
   protected styleEx: number;
@@ -68,6 +70,13 @@ export class WebViewWindow {
     } catch (_error) {
       this.logger.warn('Failed to load icon from resource MAINICON');
     }
+  }
+
+  public exportData() {
+    return {
+      dll: this.dllPath,
+      ...this._webview2.exportData(),
+    };
   }
 
   /**
@@ -179,16 +188,16 @@ export class WebViewWindow {
    * Create the window.
    * @returns The WebViewWindow instance.
    */
-  public createWindow(): this {
+  public createWindow(config: WEAPN_CONFIG = {}): this {
     this.hWindow = winApi.user.CreateWindowEx(
       this.styleEx,
       this.windowClass.lpszClassName,
-      winApi.create.stringPointer('test'),
+      winApi.create.stringPointer(config.title ?? 'Weapn'),
       this.style,
       winApi.constant.CW_USEDEFAULT,
       winApi.constant.CW_USEDEFAULT,
-      winApi.constant.CW_USEDEFAULT,
-      winApi.constant.CW_USEDEFAULT,
+      config.width ?? winApi.constant.CW_USEDEFAULT,
+      config.height ?? winApi.constant.CW_USEDEFAULT,
       null,
       null,
     );
@@ -214,7 +223,8 @@ export class WebViewWindow {
    * @returns The WebView2 instance.
    */
   public loadDll(dllPath?: string): WebView2 | null {
-    this._webview2 = createWebView2(dllPath);
+    this.dllPath = dllPath;
+    this._webview2 = createWebView2(this.dllPath);
     return this.webview2;
   }
 
@@ -225,7 +235,7 @@ export class WebViewWindow {
   public initWebView(afterCreateWebView?: () => unknown): this {
     this.logger.info('Init WebView:');
     //this.webview2Connector = this.webview2.CreateWebView2Connector(null);
-    this.webview2.CreateCoreWebView2EnvironmentWithOptions(
+    this.webview2.createCoreWebView2EnvironmentWithOptions(
       null,
       null,
       null,
@@ -249,15 +259,14 @@ export class WebViewWindow {
     _createdEnvironment: LPVOID,
     afterCreateWebView?: () => unknown,
   ): number {
-    return this.webview2.CreateCoreWebView2Controller(
+    return this.webview2.createCoreWebView2Controller(
       this.windowHandle,
       (
         _errorCode: HRESULT,
         controller: LPVOID,
       ) => {
         if (controller !== null) {
-          this.webview2.InitControllers(controller);
-          this.webview2.CoreWebView2();
+          this.webview2.getCoreWebView2();
           /*this.webview2.add_RasterizationScaleChanged(
             this.webview2Connector,
             CallbackAddRasterizationScaleChanged,
@@ -266,20 +275,19 @@ export class WebViewWindow {
         }
         this.logger.info('CreateCoreWebView2Controller: created');
 
-        this.webview2.Settings();
-        this.webview2.InitSettings();
+        this.webview2.getSettings();
 
         this.onResizeScreen();
 
-        this.webview2.IsScriptEnabled = true;
-        this.webview2.IsWebMessageEnabled = true;
-        this.webview2.AreDefaultScriptDialogsEnabled = true;
+        this.webview2.settings.isScriptEnabled = true;
+        this.webview2.settings.isWebMessageEnabled = true;
+        this.webview2.settings.areDefaultScriptDialogsEnabled = true;
         // this.webview2.AreDevToolsEnabled = false;
-        this.webview2.IsStatusBarEnabled = true;
-        this.webview2.AreDefaultContextMenusEnabled = true;
-        this.webview2.AreHostObjectsAllowed = true;
-        this.webview2.IsBuiltInErrorPageEnabled = true;
-        this.webview2.IsZoomControlEnabled = true;
+        this.webview2.settings.isStatusBarEnabled = true;
+        this.webview2.settings.areDefaultContextMenusEnabled = true;
+        this.webview2.settings.areHostObjectsAllowed = true;
+        this.webview2.settings.isBuiltInErrorPageEnabled = true;
+        this.webview2.settings.isZoomControlEnabled = true;
 
         // this.webview2.Navigate('https://localhost:8000/');
         this.status = 'RUNNING';
@@ -294,14 +302,14 @@ export class WebViewWindow {
     );
   }
 
-  protected onResizeScreen() {
+  protected onResizeScreen(): void {
     this.logger.info('OnResizeScreen:');
     if (!this.webview2) {
       return;
     }
     const bounds = winApi.create.rect();
     winApi.user.GetClientRect(this.windowHandle, bounds.pointer);
-    this.webview2.Bounds = bounds;
+    this.webview2.controllers.bounds = bounds;
   }
 
   /**
@@ -310,7 +318,10 @@ export class WebViewWindow {
    * @param bigIcon The big icon image data. (32x32)
    * @returns The WebViewWindow instance.
    */
-  public setIcon(smallIcon?: Uint8Array, bigIcon?: Uint8Array): this {
+  public setIcon(
+    smallIcon?: Uint8Array<ArrayBuffer>,
+    bigIcon?: Uint8Array<ArrayBuffer>,
+  ): this {
     [smallIcon, bigIcon].forEach((icon, index) => {
       if (!icon) {
         return;

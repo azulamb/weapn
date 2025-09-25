@@ -63,9 +63,9 @@
   },
   "imports": {
     "@azulamb/weapn": "./mod.ts",
-    "_@azulamb/webview2": "jsr:@azulamb/webview2@^0.3.9",
+    "_@azulamb/webview2": "jsr:@azulamb/webview2@^0.4.0",
     "@azulamb/webview2": "../deno_windows_webview2/mod.ts",
-    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.2.1",
+    "@azulamb/winapi": "jsr:@azulamb/winapi@^0.2.2",
     "_@azulamb/winapi": "../deno_winapi/mod.ts"
   }
 }

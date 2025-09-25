@@ -2,6 +2,7 @@
 	"deno.enablePaths": [
 		"./sample/",
 		"./sample2/",
+		"./tmp/",
 		"./src/",
 		"./tools/",
 		"../deno_windows_webview2",

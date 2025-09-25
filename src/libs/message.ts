@@ -134,7 +134,7 @@ export class WeapnMessage {
   protected onNavigate(
     message: Extract<WeapnWebMessage, { type: 'navigate' }>,
   ): HRESULT {
-    this.webview2.Navigate(message.url);
+    this.webview2.core.navigate(message.url);
     return 0;
   }
 

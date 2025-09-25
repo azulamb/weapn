@@ -8,7 +8,7 @@ export class Icon {
     readonly colorCount: number,
     readonly planes: number,
     readonly size: number,
-    readonly buffer: Uint8Array,
+    readonly buffer: Uint8Array<ArrayBuffer>,
   ) {
   }
 }
