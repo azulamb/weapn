@@ -21,6 +21,7 @@ type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 export class WebViewWindow {
   public onWindowEvent?: (message: number) => void;
   public onInitError?: (error: Error) => void;
+  public onStartupTiming?: (stage: string, durationMs: number) => void;
   protected logger: WeapnLogger;
 
   protected dllPath?: string;
@@ -276,6 +277,7 @@ export class WebViewWindow {
    * @returns The WebViewWindow instance.
    */
   public initWebView(afterCreateWebView?: () => unknown): this {
+    const environmentStartedAt = performance.now();
     this.logger.info('Init WebView:');
     //this.webview2Connector = this.webview2.CreateWebView2Connector(null);
     const result = this.webview2.createCoreWebView2EnvironmentWithOptions(
@@ -286,6 +288,10 @@ export class WebViewWindow {
         errorCode: HRESULT,
         createdEnvironment: LPVOID,
       ) => {
+        this.onStartupTiming?.(
+          'WebView2 Environment creation',
+          performance.now() - environmentStartedAt,
+        );
         const result = this.createWebView(
           errorCode,
           createdEnvironment,
@@ -316,12 +322,17 @@ export class WebViewWindow {
       );
       return _errorCode;
     }
+    const controllerStartedAt = performance.now();
     const result = this.webview2.createCoreWebView2Controller(
       this.windowHandle,
       (
         _errorCode: HRESULT,
         controller: LPVOID,
       ) => {
+        this.onStartupTiming?.(
+          'WebView2 Controller creation',
+          performance.now() - controllerStartedAt,
+        );
         if (_errorCode < 0 || !controller) {
           this.onInitError?.(
             new Error(

@@ -20,6 +20,6 @@ const timer = setTimeout(() => {
   console.error('Compiled asset rendering timed out');
   Deno.exit(1);
 }, 15_000);
-await app.setUrl('https://app.local/');
+await app.setUrl('https://app.example/');
 await app.closed;
 clearTimeout(timer);

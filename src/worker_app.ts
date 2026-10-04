@@ -30,6 +30,8 @@ export interface WorkerAppOptions {
   developerTools?: boolean;
   /** Opaque initial background for the native window and WebView2, in #RRGGBB format. */
   backgroundColor?: string;
+  /** Log startup phase durations through logger.info(). */
+  startupTiming?: boolean;
   resourceFilter?: string;
   resourceTimeoutMs?: number;
   startupTimeoutMs?: number;
@@ -134,6 +136,7 @@ export class WeapnApp {
   }
 
   async start(): Promise<void> {
+    const startedAt = performance.now();
     if (this.started) {
       throw new Error('An application can only be started once.');
     }
@@ -178,6 +181,7 @@ export class WeapnApp {
       timeout,
     );
     try {
+      const dllStartedAt = performance.now();
       if (!compiled && options.dllPath === undefined) {
         await Promise.race([
           ensureDLL(dllPath, {
@@ -197,6 +201,14 @@ export class WeapnApp {
         ]);
       }
       this.abort.signal.throwIfAborted();
+      if (options.startupTiming) {
+        (options.logger ?? console).info(
+          `[Weapn timing] DLL preparation: ${
+            (performance.now() - dllStartedAt).toFixed(1)
+          } ms`,
+        );
+      }
+      const workerStartedAt = performance.now();
       this.worker = new Worker(workerURL, { type: 'module' });
       this.worker.onmessage = (event: MessageEvent<unknown>) => {
         if (!isFromUI(event.data)) {
@@ -219,8 +231,9 @@ export class WeapnApp {
         height: options.height,
         developerTools: options.developerTools,
         backgroundColor: options.backgroundColor,
+        startupTiming: options.startupTiming,
         resourceFilter: this.resourceHandler
-          ? options.resourceFilter ?? 'https://app.local/*'
+          ? options.resourceFilter ?? 'https://app.example/*'
           : undefined,
         resourceTimeoutMs: resourceTimeout,
         maxConcurrentRequests,
@@ -229,6 +242,18 @@ export class WeapnApp {
       };
       this.send({ type: 'init', options: init });
       await ready;
+      if (options.startupTiming) {
+        (options.logger ?? console).info(
+          `[Weapn timing] Worker creation → UI ready: ${
+            (performance.now() - workerStartedAt).toFixed(1)
+          } ms`,
+        );
+        (options.logger ?? console).info(
+          `[Weapn timing] start() total: ${
+            (performance.now() - startedAt).toFixed(1)
+          } ms`,
+        );
+      }
     } catch (error) {
       this.finish(error instanceof Error ? error : new Error(String(error)));
       // Also consume the startup rejection if construction or postMessage failed.
@@ -240,7 +265,7 @@ export class WeapnApp {
   }
 
   /** Static assets are resolved relative to the application module, including in an exe. */
-  mountAssets(directory: URL, origin = 'https://app.local'): this {
+  mountAssets(directory: URL, origin = 'https://app.example'): this {
     const root = new URL(
       directory.href.endsWith('/') ? directory.href : directory.href + '/',
     );
@@ -326,6 +351,15 @@ export class WeapnApp {
       return;
     }
     switch (message.type) {
+      case 'timing':
+        if (this.options.startupTiming) {
+          (this.options.logger ?? console).info(
+            `[Weapn timing] ${message.stage}: ${
+              message.durationMs.toFixed(1)
+            } ms`,
+          );
+        }
+        break;
       case 'log':
         (this.options.logger ?? console)[message.level](...message.messages);
         break;
@@ -365,6 +399,7 @@ export class WeapnApp {
         }
         break;
       case 'request': {
+        const requestStartedAt = performance.now();
         if (
           this.activeRequests.size >= (this.options.maxConcurrentRequests ?? 64)
         ) {
@@ -440,6 +475,13 @@ export class WeapnApp {
             });
           }
         } finally {
+          if (this.options.startupTiming) {
+            (this.options.logger ?? console).info(
+              `[Weapn timing] Resource ${message.method} ${message.url}: ${
+                (performance.now() - requestStartedAt).toFixed(1)
+              } ms`,
+            );
+          }
           clearTimeout(timer);
           this.activeRequests.delete(message.id);
         }

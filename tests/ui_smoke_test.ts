@@ -55,7 +55,7 @@ Deno.test({
     await app.start();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await app.setUrl('https://app.local/');
+      await app.setUrl('https://app.example/');
       await Promise.race([
         rendered,
         new Promise((_, reject) => {
@@ -89,7 +89,7 @@ Deno.test({
       ),
     });
     app.setVirtualHostNameToFolderMapping(
-      'app.local',
+      'app.example',
       new URL('./fixtures/', import.meta.url),
     );
     let loaded!: () => void;
@@ -109,7 +109,7 @@ Deno.test({
     await app.start();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await app.setUrl('https://app.local/index.html');
+      await app.setUrl('https://app.example/index.html');
       await Promise.race([
         rendered,
         new Promise((_, reject) => {

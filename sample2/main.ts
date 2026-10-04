@@ -5,7 +5,7 @@ import { WeapnApp } from "@azulamb/weapn/app";
 
 const app = new WeapnApp(import.meta, { title: "Virtual host folder mapping" });
 app.setVirtualHostNameToFolderMapping(
-  "app.local",
+  "app.example",
   new URL("./docs/", import.meta.url),
 );
 app.onMessage(async ({ data }) => {
@@ -14,5 +14,5 @@ app.onMessage(async ({ data }) => {
   if (data === "close") await app.window.close();
 });
 await app.start();
-await app.setUrl("https://app.local/index.html");
+await app.setUrl("https://app.example/index.html");
 await app.closed;

@@ -17,6 +17,7 @@ export interface UIOptions {
   height?: number;
   developerTools?: boolean;
   backgroundColor?: string;
+  startupTiming?: boolean;
   resourceFilter?: string;
   resourceTimeoutMs: number;
   virtualHosts?: VirtualHostMapping[];
@@ -39,6 +40,7 @@ export type ToUI =
   | ({ type: 'command'; id: number } & WindowCommand)
   | { type: 'response'; id: number; response: ResourceResult };
 export type FromUI =
+  | { type: 'timing'; stage: string; durationMs: number }
   | { type: 'ready' | 'closed' }
   | { type: 'fatal'; error: string }
   | { type: 'result'; id: number; error?: string }
@@ -75,6 +77,10 @@ function response(value: unknown): value is ResourceResult {
 export function isFromUI(value: unknown): value is FromUI {
   if (!record(value)) return false;
   switch (value.type) {
+    case 'timing':
+      return typeof value.stage === 'string' &&
+        typeof value.durationMs === 'number' &&
+        Number.isFinite(value.durationMs) && value.durationMs >= 0;
     case 'ready':
     case 'closed':
       return true;
@@ -129,6 +135,8 @@ export function isToUI(value: unknown): value is ToUI {
     (options.height === undefined || positive(options.height)) &&
     (options.developerTools === undefined ||
       typeof options.developerTools === 'boolean') &&
+    (options.startupTiming === undefined ||
+      typeof options.startupTiming === 'boolean') &&
     (options.virtualHosts === undefined ||
       Array.isArray(options.virtualHosts) &&
         options.virtualHosts.every((mapping) =>

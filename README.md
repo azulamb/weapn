@@ -26,7 +26,7 @@ app.onMessage(async ({ data }) => {
   }
 });
 await app.start();
-await app.setUrl('https://app.local/index.html');
+await app.setUrl('https://app.example/index.html');
 await app.closed;
 ```
 
@@ -46,7 +46,7 @@ Promises: `maximize()`, `minimize()`, `restore()`, `setTitle(title)`, and
 Register resource handling before `start()`. As an alternative to
 `mountAssets()`, use
 `onResourceRequest((request) => Response | Promise<Response>)`. The default
-filter is `https://app.local/*`; `resourceFilter` can select another origin.
+filter is `https://app.example/*`; `resourceFilter` can select another origin.
 Native event arguments and deferrals stay in the UI Worker. Requests and results
 cross the boundary as ordinary data. Resource handlers currently support GET and
 HEAD, receive URL/method (not original request headers), and buffer response
@@ -61,6 +61,50 @@ directly through FFI; the project DLL remains unchanged. This implementation is
 for Windows x64 and requires WebView2 Runtime. Long main-thread CPU work should
 use another Worker. Synchronous native return values such as hit testing remain
 inside the UI Worker.
+
+### Measure startup
+
+Enable `startupTiming: true` in `WeapnApp` options to log DLL preparation,
+Worker-to-ready duration, native window creation, WebView2
+Environment/Controller creation, navigation duration and resource response
+handling through `logger.info`. Timing logs are opt-in. Nested phase durations
+overlap; do not sum all lines.
+
+From `sample3/`, run:
+
+```sh
+deno task start --startup-timing
+```
+
+Add `--startup-timing-exit` to close automatically after frontend readiness. The
+sample reports browser Navigation Timing and a main-entry-to-ready duration
+after `load` and two animation frames. This is a readiness approximation, not a
+measurement of the exact physical display time, and excludes Deno startup and
+module imports before main's top-level code executes.
+
+To compare hostnames or physical-folder mapping, run:
+
+```sh
+deno task start --startup-timing --startup-timing-exit --startup-timing-host app.example
+deno task start --startup-timing --startup-timing-exit --startup-timing-host app.example --startup-timing-folder
+```
+
+The folder option requires physical frontend files and is intended for
+development diagnostics. It does not test exe-embedded assets.
+
+In local development measurements with the same sample/profile, `app.local` took
+about 2.03 seconds for navigation and 2.75 seconds from main entry to frontend
+readiness. `app.example` took about 0.11 seconds for navigation and 0.76 seconds
+to readiness. Both response interception and physical-folder mapping showed the
+same approximately two-second hostname-related delay. These are observed values
+on this machine, not cold-start guarantees. Microsoft documents that `.local`
+hostnames can cause navigation delays in the
+[virtual host mapping reference](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2_3).
+The default origin is now `https://app.example`. The host option supports
+comparison with other hostnames, including `--startup-timing-host app.local`.
+Applications migrating from the previous origin should update navigation URLs
+and explicit resource filters or host mappings together. Origin-scoped data,
+including localStorage and IndexedDB, is separate for the new hostname.
 
 ### Run the sample
 

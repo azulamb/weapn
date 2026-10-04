@@ -15,7 +15,7 @@ Deno.test('protocol rejects invalid IDs, commands and native response headers', 
     !isFromUI({
       type: 'request',
       id: -1,
-      url: 'https://app.local/',
+      url: 'https://app.example/',
       method: 'GET',
     }),
   );
@@ -23,7 +23,7 @@ Deno.test('protocol rejects invalid IDs, commands and native response headers', 
     !isFromUI({
       type: 'request',
       id: 1,
-      url: 'https://app.local/',
+      url: 'https://app.example/',
       method: 'POST',
     }),
   );
@@ -41,6 +41,23 @@ Deno.test('protocol rejects invalid IDs, commands and native response headers', 
   );
   assert(isToUI({ type: 'command', id: 1, action: 'title', value: 'valid' }));
   assert(isFromUI({ type: 'cancel', id: 1 }));
+  assert(
+    isFromUI({
+      type: 'timing',
+      stage: 'Controller creation',
+      durationMs: 12.5,
+    }),
+  );
+  assert(
+    !isFromUI({
+      type: 'timing',
+      stage: 'Controller creation',
+      durationMs: NaN,
+    }),
+  );
+  assert(
+    !isFromUI({ type: 'timing', stage: 'Controller creation', durationMs: -1 }),
+  );
 });
 Deno.test('response buffering cancels on overflow and abort', async () => {
   let cancelled = false;

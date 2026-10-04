@@ -23,5 +23,5 @@ app.onMessage(async ({ data }) => {
   if (data === "close") await app.window.close();
 });
 await app.start();
-await app.setUrl("https://app.local/");
+await app.setUrl("https://app.example/");
 await app.closed;

@@ -19,6 +19,17 @@
   <button data-action="title">タイトル変更</button>
   <button data-action="close">閉じる</button>
   <script>
+  window.addEventListener("load", () => {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const navigation = performance.getEntriesByType("navigation")[0];
+        chrome.webview.postMessage({
+          type: "weapn-ready",
+          navigation: navigation?.toJSON(),
+        });
+      })
+    );
+  });
   document.querySelectorAll("button").forEach((button) => {
     button.onclick = () =>
       chrome.webview.postMessage({ type: button.dataset.action });

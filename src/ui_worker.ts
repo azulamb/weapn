@@ -200,6 +200,7 @@ export function startUIWorker(): void {
   }
 
   function init(config: UIOptions): void {
+    const initStartedAt = performance.now();
     if (window) {
       throw new Error('UI Worker is already initialized.');
     }
@@ -219,6 +220,10 @@ export function startUIWorker(): void {
     initialized = true;
     Deno.env.set('WEBVIEW2_USER_DATA_FOLDER', options.userDataFolder);
     window = new WebViewWindow(logger);
+    const timing = (stage: string, durationMs: number) => {
+      if (options.startupTiming) post({ type: 'timing', stage, durationMs });
+    };
+    window.onStartupTiming = timing;
     window.onWindowEvent = (message) => {
       return post({ type: 'window', message });
     };
@@ -236,10 +241,36 @@ export function startUIWorker(): void {
       height: options.height,
     });
     running = true;
+    timing(
+      'UI init → native window created',
+      performance.now() - initStartedAt,
+    );
     void pump();
     window.initWebView(() => {
       try {
         const webview = window!.webview2;
+        if (options.startupTiming) {
+          let navigationStartedAt: number | undefined;
+          let navigationID: bigint | undefined;
+          webview.core.addNavigationStarting((_sender, args) => {
+            navigationStartedAt = performance.now();
+            navigationID = args.NavigationId;
+            return 0;
+          });
+          webview.core.addNavigationCompleted((_sender, args) => {
+            if (
+              navigationStartedAt !== undefined &&
+              args.NavigationId === navigationID
+            ) {
+              timing(
+                `Navigation completed (success=${args.IsSuccess}, status=${args.WebErrorStatus})`,
+                performance.now() - navigationStartedAt,
+              );
+              navigationStartedAt = undefined;
+            }
+            return 0;
+          });
+        }
         if (options.backgroundColor !== undefined) {
           webview.controllers.defaultBackgroundColor = backgroundColorChannels(
             options.backgroundColor,

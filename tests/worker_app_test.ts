@@ -108,13 +108,13 @@ Deno.test('resource cancellation aborts its Request and releases the concurrency
     worker.emit({
       type: 'request',
       id: 1,
-      url: 'https://app.local/',
+      url: 'https://app.example/',
       method: 'GET',
     });
     worker.emit({
       type: 'request',
       id: 2,
-      url: 'https://app.local/',
+      url: 'https://app.example/',
       method: 'GET',
     });
     assert((await responseFrom(worker, 2)).status === 503);
@@ -199,7 +199,7 @@ Deno.test('commands and frontend events route through main without native import
     const worker = FakeWorker.last;
     worker.emit({
       type: 'message',
-      source: 'https://app.local/',
+      source: 'https://app.example/',
       data: 'maximize',
     });
     await app.window.setTitle('main');
@@ -211,20 +211,20 @@ Deno.test('commands and frontend events route through main without native import
     await app.window.close();
     await app.closed;
     assert(worker.terminated);
-    await rejected(app.setUrl('https://app.local/'));
+    await rejected(app.setUrl('https://app.example/'));
   }));
 
 Deno.test('virtual hosts are registered in the UI Worker without resource interception', () =>
   withWorker(async () => {
     const app = new WeapnApp(import.meta, { dllPath: './test.dll' });
     const folder = new URL('./fixtures/', import.meta.url);
-    app.setVirtualHostNameToFolderMapping('app.local', folder);
+    app.setVirtualHostNameToFolderMapping('app.example', folder);
     await app.start();
     const init = FakeWorker.last.sent.find((message) =>
       message.type === 'init'
     );
     assert(init?.type === 'init');
-    assert(init.options.virtualHosts?.[0].hostName === 'app.local');
+    assert(init.options.virtualHosts?.[0].hostName === 'app.example');
     assert(init.options.virtualHosts?.[0].accessKind === 'denyCors');
     assert(init.options.resourceFilter === undefined);
     let rejectedLateRegistration = false;
@@ -254,7 +254,7 @@ Deno.test('async resource handler can issue window commands while response is pe
     worker.emit({
       type: 'request',
       id: 7,
-      url: 'https://app.local/file',
+      url: 'https://app.example/file',
       method: 'GET',
     });
     const response = await responseFrom(worker, 7);
@@ -278,7 +278,7 @@ Deno.test('handler failures become 500 responses', () =>
     worker.emit({
       type: 'request',
       id: 8,
-      url: 'https://app.local/',
+      url: 'https://app.example/',
       method: 'GET',
     });
     assert((await responseFrom(worker, 8)).status === 500);
@@ -309,7 +309,7 @@ Deno.test('asset routing supports index, MIME, HEAD, encoded names and rejects t
         worker.emit({
           type: 'request',
           id: id + 1,
-          url: 'https://app.local' + path,
+          url: 'https://app.example' + path,
           method,
         });
         const response = await responseFrom(worker, id + 1);
