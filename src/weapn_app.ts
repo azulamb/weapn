@@ -283,6 +283,7 @@ export class WeapnApp {
     args.Response = webview2Response;
   }*/
 
+  /** @deprecated The legacy resource Worker uses COM pointers across threads. Use the Worker-backed app's onResourceRequest() instead. */
   addWebResourceRequested(
     //callback: (args: WebResourceRequestedEventArgs) => Response,
     workerPath: string,

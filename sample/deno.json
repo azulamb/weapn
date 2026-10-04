@@ -2,7 +2,7 @@
   "tasks": {
     "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net main.ts",
     "build": "deno run --allow-read --allow-write --allow-net --allow-run build.ts",
-    "check": "deno check main.ts worker.ts build.ts && deno lint"
+    "check": "deno check main.ts build.ts && deno lint"
   },
   "imports": {
     "@azulamb/weapn": "jsr:@azulamb/weapn@^0.2.0"

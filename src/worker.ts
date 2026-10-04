@@ -45,6 +45,7 @@ export type WeapnWorkerMessages<T = undefined> = {
   deferral: bigint;
 } | WeapnWorkerMessage & T;
 
+/** @deprecated Uses raw COM pointers across threads. Use WeapnApp from @azulamb/weapn/app with onResourceRequest() instead. */
 export class WeaponWorker {
   protected prepare: Promise<void>;
   protected webview2!: WebView2;

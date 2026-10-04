@@ -1,20 +1,27 @@
-import { WeapnApp } from '@azulamb/weapn';
+import { WeapnApp } from '@azulamb/weapn/app';
 
-const app = new WeapnApp(import.meta, { logger: console });
-app.setUserDataFolder();
-app.setWeapnMessage();
-
-await app.init({
-  includePath: true,
-  debugMode: true,
+const app = new WeapnApp(import.meta, {
+  title: 'Custom resource response',
+  developerTools: true,
 });
-app.developerToolsEnabled = true;
-
-app.webview2.core.addWebResourceRequestedFilter('http://app.local/*', 0);
-app.addWebResourceRequested(
-  import.meta.resolve('./worker.ts'),
-);
-
-app.setUrl('http://app.local/');
-
-app.run();
+// Async application work stays on main; native response creation stays on the UI Worker.
+app.onResourceRequest(async (request) => {
+  const url = new URL(request.url);
+  if (url.pathname !== '/' && url.pathname !== '/index.html') {
+    return new Response('Not found', { status: 404 });
+  }
+  const html = await Deno.readTextFile(
+    new URL('./docs/index.html', import.meta.url),
+  );
+  return new Response(request.method === 'HEAD' ? null : html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+});
+app.onMessage(async ({ data }) => {
+  if (data === 'maximize') await app.window.maximize();
+  if (data === 'restore') await app.window.restore();
+  if (data === 'close') await app.window.close();
+});
+await app.start();
+await app.setUrl('https://app.local/');
+await app.closed;

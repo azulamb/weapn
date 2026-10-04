@@ -30,7 +30,10 @@ Deno.test({
         return setTimeout(resolve, 10);
       });
       return new Response(
-        '<!doctype html><script>chrome.webview.postMessage({type:"loaded"})</script>',
+        await Deno.readTextFile(
+          new URL('../sample/docs/index.html', import.meta.url),
+        ) +
+          '<script>chrome.webview.postMessage({type:"loaded"})</script>',
         { headers: { 'Content-Type': 'text/html' } },
       );
     });

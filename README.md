@@ -146,15 +146,17 @@ places it beside the executable.
 deno task build
 ```
 
-The original sample builds `app.exe`. Each sample has its own `deno.json`;
+The custom response sample builds `app.exe`. Each sample has its own `deno.json`;
 run `deno task start` and `deno task check` inside the sample directory.
 `sample2` uses the Worker-backed API and `setVirtualHostNameToFolderMapping()`
 to serve a physical `docs/` directory directly through WebView2. Register the
 mapping before `start()`; paths are file URLs or paths relative to the working
 directory. The default cross-origin access setting is `denyCors`.
 This requires files on disk, so exe-embedded frontend assets should use
-`mountAssets()` as shown in `sample3`. The original `sample` demonstrates the
-legacy resource Worker API.
+`mountAssets()` as shown in `sample3`. The `sample` demonstrates asynchronous
+`onResourceRequest()` handling on main with native response creation on the UI
+Worker. The legacy `WeaponWorker` and `addWebResourceRequested(workerPath)`
+are deprecated because they pass raw WebView2 COM pointers between threads.
 
 ## Other
 
