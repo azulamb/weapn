@@ -1,12 +1,14 @@
 import { WeaponWorker } from '@azulamb/weapn';
 
 const worker = new WeaponWorker();
-worker.onrequest = async (args) => {
-  return new Response(
-    'test',
-    {
-      status: 200,
-    },
+worker.onrequest = () => {
+  return Promise.resolve(
+    new Response(
+      'test',
+      {
+        status: 200,
+      },
+    ),
   );
 };
 worker.onPrepared.then(() => {

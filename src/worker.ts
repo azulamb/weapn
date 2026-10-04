@@ -86,11 +86,11 @@ export class WeaponWorker {
 
   public onrequest?: (args: WebResourceRequestedEventArgs) => Promise<Response>;
 
-  get onPrepared() {
+  get onPrepared(): Promise<void> {
     return this.prepare;
   }
 
-  protected onMessage(event: MessageEvent<WeapnWorkerMessages>) {
+  protected onMessage(event: MessageEvent<WeapnWorkerMessages>): void {
     if (!event.data || typeof event.data !== 'object') {
       return;
     }
@@ -112,7 +112,7 @@ export class WeaponWorker {
     type: 'request';
     eventArgs: bigint;
     deferral: bigint;
-  }) {
+  }): void {
     if (
       typeof data.eventArgs !== 'bigint' ||
       typeof data.deferral !== 'bigint'

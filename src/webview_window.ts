@@ -18,6 +18,8 @@ import type { WeapnLogger } from './types.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
+  public onWindowEvent?: (message: number) => void;
+  public onInitError?: (error: Error) => void;
   protected logger: WeapnLogger;
 
   protected dllPath?: string;
@@ -72,7 +74,13 @@ export class WebViewWindow {
     }
   }
 
-  public exportData() {
+  public exportData(): {
+    dll: string | undefined;
+    core: bigint;
+    environments: bigint;
+    settings: bigint;
+    controllers: bigint;
+  } {
     return {
       dll: this.dllPath,
       ...this._webview2.exportData(),
@@ -113,8 +121,16 @@ export class WebViewWindow {
             winApi.user.PostQuitMessage(0);
             break;
           case winApi.windowMessage.WM_SIZE:
-            this.onResizeScreen();
+            if (this.isPrepared()) {
+              this.onResizeScreen();
+            }
             break;
+        }
+        if (
+          Msg === winApi.windowMessage.WM_SIZE ||
+          Msg === winApi.windowMessage.WM_DESTROY
+        ) {
+          this.onWindowEvent?.(Msg);
         }
         return winApi.user.DefWindowProc(hWnd, Msg, wParam, lParam);
       },
@@ -213,7 +229,7 @@ export class WebViewWindow {
    * Get the WebView2 instance.
    * @returns The WebView2 instance.
    */
-  public get webview2() {
+  public get webview2(): WebView2 {
     return this._webview2;
   }
 
@@ -235,7 +251,7 @@ export class WebViewWindow {
   public initWebView(afterCreateWebView?: () => unknown): this {
     this.logger.info('Init WebView:');
     //this.webview2Connector = this.webview2.CreateWebView2Connector(null);
-    this.webview2.createCoreWebView2EnvironmentWithOptions(
+    const result = this.webview2.createCoreWebView2EnvironmentWithOptions(
       null,
       null,
       null,
@@ -251,6 +267,14 @@ export class WebViewWindow {
         return result;
       },
     );
+    if (result < 0) {
+      const error = new Error(
+        `CreateCoreWebView2Environment failed: ${result}`,
+      );
+      if (this.onInitError) {
+        this.onInitError(error);
+      } else throw error;
+    }
     return this;
   }
 
@@ -259,12 +283,26 @@ export class WebViewWindow {
     _createdEnvironment: LPVOID,
     afterCreateWebView?: () => unknown,
   ): number {
-    return this.webview2.createCoreWebView2Controller(
+    if (_errorCode < 0 || !_createdEnvironment) {
+      this.onInitError?.(
+        new Error(`WebView2 environment initialization failed: ${_errorCode}`),
+      );
+      return _errorCode;
+    }
+    const result = this.webview2.createCoreWebView2Controller(
       this.windowHandle,
       (
         _errorCode: HRESULT,
         controller: LPVOID,
       ) => {
+        if (_errorCode < 0 || !controller) {
+          this.onInitError?.(
+            new Error(
+              `WebView2 controller initialization failed: ${_errorCode}`,
+            ),
+          );
+          return _errorCode;
+        }
         if (controller !== null) {
           this.webview2.getCoreWebView2();
           /*this.webview2.add_RasterizationScaleChanged(
@@ -300,6 +338,12 @@ export class WebViewWindow {
         return 0;
       },
     );
+    if (result < 0) {
+      this.onInitError?.(
+        new Error(`CreateCoreWebView2Controller failed: ${result}`),
+      );
+    }
+    return result;
   }
 
   protected onResizeScreen(): void {
@@ -338,8 +382,8 @@ export class WebViewWindow {
       winApi.user.SendMessage(
         this.windowHandle,
         winApi.windowMessage.WM_SETICON,
-        Deno.UnsafePointer.create(BigInt(index)), // ICON_SMALL = 0, ICON_BIG = 1
-        this.hIcons[index],
+        BigInt(index), // ICON_SMALL = 0, ICON_BIG = 1
+        BigInt.asIntN(64, Deno.UnsafePointer.value(this.hIcons[index])),
       );
     });
     return this;

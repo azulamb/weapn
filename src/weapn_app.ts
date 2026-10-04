@@ -8,13 +8,14 @@ import {
 import type {
   PREPARE_WEBVIEW2_DLL_OPTION,
   WEAPN_CONFIG,
+  WebView2,
 } from './libs/webview2.ts';
 import { isCompiled } from './support/compile.ts';
-import { dirname, fromFileUrl, isAbsolute, join } from 'jsr:@std/path@^1.0.8';
+import { dirname, fromFileUrl, isAbsolute, join } from '@std/path';
 import type { WeapnLogger } from './types.ts';
 import { WeapnMessage } from './libs/message.ts';
 import type { WeapnMessageFromClient } from '@azulamb/weapn/types';
-import { MOVE_FOCUS_REASON } from '../../deno_windows_webview2/src/constants/MOVE_FOCUS_REASON.ts';
+import { MOVE_FOCUS_REASON } from './libs/webview2.ts';
 import type { WeapnWorkerMessages } from './worker.ts';
 
 type ImportMeta = {
@@ -103,7 +104,7 @@ export class WeapnApp {
    * Get the WebViewWindow instance.
    * @returns The WebViewWindow instance.
    */
-  public get window() {
+  public get window(): WebViewWindow {
     return this.win;
   }
 
@@ -111,7 +112,7 @@ export class WeapnApp {
    * Get the WebView2 instance.
    * @returns The WebView2 instance.
    */
-  public get webview2() {
+  public get webview2(): WebView2 {
     return this.win.webview2;
   }
 

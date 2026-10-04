@@ -94,7 +94,7 @@ export class IconDirectory {
    * Get the number of icons in the directory.
    * @returns The number of icons.
    */
-  get length() {
+  get length(): number {
     return this.icons.length;
   }
 
@@ -121,17 +121,7 @@ export class IconDirectory {
     return this;
   }
 
-  [Symbol.iterator]() {
-    return new class {
-      private index = 0;
-      private icons: Icon[];
-      constructor(icons: Icon[]) {
-        this.icons = icons;
-      }
-      next() {
-        const index = this.index++;
-        return { value: this.icons[index], done: this.icons.length <= index };
-      }
-    }(this.icons);
+  [Symbol.iterator](): IterableIterator<Icon> {
+    return this.icons[Symbol.iterator]();
   }
 }

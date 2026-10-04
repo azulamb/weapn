@@ -1,9 +1,9 @@
-import type { WeapnMessageFromApp, WeapnMessageFromClient } from './types';
+import type { WeapnMessageFromApp, WeapnMessageFromClient } from './types.ts';
 
 // https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/javascript/hostobjectsasyncroot
-interface HostObjectsAsyncRoot {}
+type HostObjectsAsyncRoot = Record<string, unknown>;
 
-declare const window: Window & typeof globalThis & {
+declare const window: {
   chrome?: {
     // https://learn.microsoft.com/ja-jp/microsoft-edge/webview2/reference/javascript/webview
     webview: {
@@ -13,10 +13,10 @@ declare const window: Window & typeof globalThis & {
         listener: EventListenerOrEventListenerObject,
         options?: boolean | AddEventListenerOptions,
       ) => void;
-      postMessage: (message: any) => void;
+      postMessage: (message: unknown) => void;
       postMessageWithAdditionalObjects: (
-        message: any,
-        additionalObjects: ArrayLike<any>,
+        message: unknown,
+        additionalObjects: ArrayLike<unknown>,
       ) => void;
       releaseBuffer(buffer: ArrayBuffer): void;
       removeEventListener(
@@ -28,7 +28,7 @@ declare const window: Window & typeof globalThis & {
   };
 };
 
-export type WeapnEventToken = {};
+export type WeapnEventToken = object;
 
 type WeapnMessageEventToken = WeapnEventToken & {
   listener: EventListenerOrEventListenerObject;
@@ -36,7 +36,7 @@ type WeapnMessageEventToken = WeapnEventToken & {
 
 /** */
 export function addWeapnMessage(
-  callback: (data: WeapnMessageFromApp) => unknown,
+  _callback: (data: WeapnMessageFromApp) => unknown,
   options?: boolean | AddEventListenerOptions,
 ): WeapnMessageEventToken | undefined {
   if (!window.chrome) {
@@ -61,7 +61,7 @@ export function addWeapnMessage(
 export function removeWeapnMessage(
   token: WeapnMessageEventToken,
   options?: boolean | AddEventListenerOptions,
-) {
+): void {
   if (!window.chrome) {
     console.warn('Not running in a weapn.');
     return;
@@ -69,7 +69,7 @@ export function removeWeapnMessage(
   window.chrome.webview.removeEventListener('message', token.listener, options);
 }
 
-export function sendWeapnMessage(message: WeapnMessageFromClient) {
+export function sendWeapnMessage(message: WeapnMessageFromClient): void {
   if (!window.chrome) {
     console.warn('Not running in a weapn.');
     return;
