@@ -1,4 +1,11 @@
-import { dirname, isAbsolute, join, resolve, toFileUrl } from '@std/path';
+import {
+  dirname,
+  fromFileUrl,
+  isAbsolute,
+  join,
+  resolve,
+  toFileUrl,
+} from '@std/path';
 import { copy, DLL_VERSION } from '@azulamb/webview2/copy';
 
 export interface BuildOptions {
@@ -7,7 +14,8 @@ export interface BuildOptions {
   assets?: string[];
   /** Additional Worker entrypoints: JSR/HTTP/file URLs or local paths starting with './'. Resolve bare specifiers with import.meta.resolve in your build script. */
   workers?: (string | URL)[];
-  icon?: string;
+  /** Omit to use the package's res/icon.ico; null omits --icon. A path uses a custom icon. */
+  icon?: string | null;
   permissions?: string[];
   terminal?: boolean;
 }
@@ -44,18 +52,47 @@ export async function build(options: BuildOptions): Promise<void> {
   if (!options.terminal) {
     args.push('--no-terminal');
   }
-  if (options.icon) {
-    args.push('--icon', resolve(options.icon));
-  }
   for (const asset of options.assets ?? []) {
     args.push('--include', resolve(asset));
   }
   args.push(...options.permissions ?? [], '--output', output, entry);
-  const result = await new Deno.Command(Deno.execPath(), {
-    args,
-    stdout: 'inherit',
-    stderr: 'inherit',
-  }).output();
+  let temporaryIcon: string | undefined;
+  let result: Deno.CommandOutput;
+  try {
+    if (options.icon !== null) {
+      let icon: string;
+      if (options.icon !== undefined) {
+        icon = resolve(options.icon);
+      } else {
+        const source = new URL('./res/icon.ico', import.meta.url);
+        if (source.protocol === 'file:') {
+          icon = fromFileUrl(source);
+        } else {
+          const response = await fetch(source);
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch default icon: ${response.status} ${source}`,
+            );
+          }
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          temporaryIcon = await Deno.makeTempFile({
+            prefix: 'weapn-icon-',
+            suffix: '.ico',
+          });
+          await Deno.writeFile(temporaryIcon, bytes);
+          icon = temporaryIcon;
+        }
+      }
+      args.splice(1, 0, '--icon', icon);
+    }
+    result = await new Deno.Command(Deno.execPath(), {
+      args,
+      stdout: 'inherit',
+      stderr: 'inherit',
+    }).output();
+  } finally {
+    if (temporaryIcon !== undefined) await Deno.remove(temporaryIcon);
+  }
   if (!result.success) {
     throw new Error(`deno compile failed (${result.code}).`);
   }

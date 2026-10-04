@@ -152,6 +152,12 @@ WebView2 package beside the executable after a successful compile. Direct
 default; `permissions` adds runtime permission flags, and `terminal: true`
 retains the console.
 
+`icon` defaults to the package's `res/icon.ico` when omitted or `undefined`.
+Set `icon: null` to omit `deno compile --icon`, or `icon: './custom.ico'` to use
+a custom icon relative to the working directory. When installed from JSR, the
+default icon is downloaded to a temporary file and removed after compilation;
+it does not need to be shipped alongside the executable.
+
 The internal UI Worker is included automatically. Additional Worker entrypoints
 can be selected in the build script:
 
