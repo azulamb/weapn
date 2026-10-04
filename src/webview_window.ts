@@ -1,7 +1,7 @@
 import { winApi, type WindowClassEx } from './libs/win_api.ts';
 import { createWebView2 } from './libs/webview2.ts';
 import { EventRegistrationToken } from './structs/event_registration_token.ts';
-import type { WebView2 } from './libs/webview2.ts';
+import type { WEAPN_CONFIG, WebView2 } from './libs/webview2.ts';
 import type {
   HICON,
   HINSTANCE,
@@ -15,10 +15,16 @@ import type {
 } from './libs/win_api.ts';
 import { LoadMultiIconFromIconGroupResource } from './support/icon_loader.ts';
 import type { WeapnLogger } from './types.ts';
+import { backgroundColorChannels } from './support/background_color.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
+  public onWindowEvent?: (message: number) => void;
+  public onInitError?: (error: Error) => void;
+  public onStartupTiming?: (stage: string, durationMs: number) => void;
   protected logger: WeapnLogger;
+
+  protected dllPath?: string;
 
   protected style: number;
   protected styleEx: number;
@@ -70,6 +76,19 @@ export class WebViewWindow {
     }
   }
 
+  public exportData(): {
+    dll: string | undefined;
+    core: bigint;
+    environments: bigint;
+    settings: bigint;
+    controllers: bigint;
+  } {
+    return {
+      dll: this.dllPath,
+      ...this._webview2.exportData(),
+    };
+  }
+
   /**
    * Check if the WebView2 is prepared.
    * @returns true if the WebView2 is prepared.
@@ -104,8 +123,16 @@ export class WebViewWindow {
             winApi.user.PostQuitMessage(0);
             break;
           case winApi.windowMessage.WM_SIZE:
-            this.onResizeScreen();
+            if (this.isPrepared()) {
+              this.onResizeScreen();
+            }
             break;
+        }
+        if (
+          Msg === winApi.windowMessage.WM_SIZE ||
+          Msg === winApi.windowMessage.WM_DESTROY
+        ) {
+          this.onWindowEvent?.(Msg);
         }
         return winApi.user.DefWindowProc(hWnd, Msg, wParam, lParam);
       },
@@ -164,14 +191,40 @@ export class WebViewWindow {
    * @param dir The directory path to set as the user data folder.
    * @returns The WebViewWindow instance.
    */
-  public initWindow(): this {
+  public initWindow(backgroundColor?: string): this {
+    let brush: Deno.PointerValue = null;
+    if (backgroundColor !== undefined) {
+      const { red, green, blue } = backgroundColorChannels(backgroundColor);
+      const gdi = Deno.dlopen('gdi32.dll', {
+        CreateSolidBrush: { parameters: ['u32'], result: 'pointer' },
+      });
+      try {
+        brush = gdi.symbols.CreateSolidBrush(red | (green << 8) | (blue << 16));
+      } finally {
+        gdi.close();
+      }
+      if (!brush) throw new Error('CreateSolidBrush failed.');
+      this.windowClass.hbrBackground = brush;
+    }
     // Register WindowClassEx
     const result = winApi.user.RegisterClassEx(this.windowClass.pointer);
     if (!result) {
+      const lastError = winApi.kernel.GetLastError();
+      if (brush) {
+        const gdi = Deno.dlopen('gdi32.dll', {
+          DeleteObject: { parameters: ['pointer'], result: 'i32' },
+        });
+        try {
+          gdi.symbols.DeleteObject(brush);
+        } finally {
+          gdi.close();
+        }
+      }
       throw new Error(
-        `Failure RegisterClassEx. [GetLastError=${winApi.kernel.GetLastError()}]`,
+        `Failure RegisterClassEx. [GetLastError=${lastError}]`,
       );
     }
+    // After successful registration, UnregisterClass owns the background brush cleanup.
     return this;
   }
 
@@ -179,16 +232,16 @@ export class WebViewWindow {
    * Create the window.
    * @returns The WebViewWindow instance.
    */
-  public createWindow(): this {
+  public createWindow(config: WEAPN_CONFIG = {}): this {
     this.hWindow = winApi.user.CreateWindowEx(
       this.styleEx,
       this.windowClass.lpszClassName,
-      winApi.create.stringPointer('test'),
+      winApi.create.stringPointer(config.title ?? 'Weapn'),
       this.style,
       winApi.constant.CW_USEDEFAULT,
       winApi.constant.CW_USEDEFAULT,
-      winApi.constant.CW_USEDEFAULT,
-      winApi.constant.CW_USEDEFAULT,
+      config.width ?? winApi.constant.CW_USEDEFAULT,
+      config.height ?? winApi.constant.CW_USEDEFAULT,
       null,
       null,
     );
@@ -204,7 +257,7 @@ export class WebViewWindow {
    * Get the WebView2 instance.
    * @returns The WebView2 instance.
    */
-  public get webview2() {
+  public get webview2(): WebView2 {
     return this._webview2;
   }
 
@@ -214,7 +267,8 @@ export class WebViewWindow {
    * @returns The WebView2 instance.
    */
   public loadDll(dllPath?: string): WebView2 | null {
-    this._webview2 = createWebView2(dllPath);
+    this.dllPath = dllPath;
+    this._webview2 = createWebView2(this.dllPath);
     return this.webview2;
   }
 
@@ -223,9 +277,10 @@ export class WebViewWindow {
    * @returns The WebViewWindow instance.
    */
   public initWebView(afterCreateWebView?: () => unknown): this {
+    const environmentStartedAt = performance.now();
     this.logger.info('Init WebView:');
     //this.webview2Connector = this.webview2.CreateWebView2Connector(null);
-    this.webview2.CreateCoreWebView2EnvironmentWithOptions(
+    const result = this.webview2.createCoreWebView2EnvironmentWithOptions(
       null,
       null,
       null,
@@ -233,6 +288,10 @@ export class WebViewWindow {
         errorCode: HRESULT,
         createdEnvironment: LPVOID,
       ) => {
+        this.onStartupTiming?.(
+          'WebView2 Environment creation',
+          performance.now() - environmentStartedAt,
+        );
         const result = this.createWebView(
           errorCode,
           createdEnvironment,
@@ -241,6 +300,14 @@ export class WebViewWindow {
         return result;
       },
     );
+    if (result < 0) {
+      const error = new Error(
+        `CreateCoreWebView2Environment failed: ${result}`,
+      );
+      if (this.onInitError) {
+        this.onInitError(error);
+      } else throw error;
+    }
     return this;
   }
 
@@ -249,15 +316,33 @@ export class WebViewWindow {
     _createdEnvironment: LPVOID,
     afterCreateWebView?: () => unknown,
   ): number {
-    return this.webview2.CreateCoreWebView2Controller(
+    if (_errorCode < 0 || !_createdEnvironment) {
+      this.onInitError?.(
+        new Error(`WebView2 environment initialization failed: ${_errorCode}`),
+      );
+      return _errorCode;
+    }
+    const controllerStartedAt = performance.now();
+    const result = this.webview2.createCoreWebView2Controller(
       this.windowHandle,
       (
         _errorCode: HRESULT,
         controller: LPVOID,
       ) => {
+        this.onStartupTiming?.(
+          'WebView2 Controller creation',
+          performance.now() - controllerStartedAt,
+        );
+        if (_errorCode < 0 || !controller) {
+          this.onInitError?.(
+            new Error(
+              `WebView2 controller initialization failed: ${_errorCode}`,
+            ),
+          );
+          return _errorCode;
+        }
         if (controller !== null) {
-          this.webview2.InitControllers(controller);
-          this.webview2.CoreWebView2();
+          this.webview2.getCoreWebView2();
           /*this.webview2.add_RasterizationScaleChanged(
             this.webview2Connector,
             CallbackAddRasterizationScaleChanged,
@@ -266,20 +351,19 @@ export class WebViewWindow {
         }
         this.logger.info('CreateCoreWebView2Controller: created');
 
-        this.webview2.Settings();
-        this.webview2.InitSettings();
+        this.webview2.getSettings();
 
         this.onResizeScreen();
 
-        this.webview2.IsScriptEnabled = true;
-        this.webview2.IsWebMessageEnabled = true;
-        this.webview2.AreDefaultScriptDialogsEnabled = true;
+        this.webview2.settings.isScriptEnabled = true;
+        this.webview2.settings.isWebMessageEnabled = true;
+        this.webview2.settings.areDefaultScriptDialogsEnabled = true;
         // this.webview2.AreDevToolsEnabled = false;
-        this.webview2.IsStatusBarEnabled = true;
-        this.webview2.AreDefaultContextMenusEnabled = true;
-        this.webview2.AreHostObjectsAllowed = true;
-        this.webview2.IsBuiltInErrorPageEnabled = true;
-        this.webview2.IsZoomControlEnabled = true;
+        this.webview2.settings.isStatusBarEnabled = true;
+        this.webview2.settings.areDefaultContextMenusEnabled = true;
+        this.webview2.settings.areHostObjectsAllowed = true;
+        this.webview2.settings.isBuiltInErrorPageEnabled = true;
+        this.webview2.settings.isZoomControlEnabled = true;
 
         // this.webview2.Navigate('https://localhost:8000/');
         this.status = 'RUNNING';
@@ -292,16 +376,22 @@ export class WebViewWindow {
         return 0;
       },
     );
+    if (result < 0) {
+      this.onInitError?.(
+        new Error(`CreateCoreWebView2Controller failed: ${result}`),
+      );
+    }
+    return result;
   }
 
-  protected onResizeScreen() {
+  protected onResizeScreen(): void {
     this.logger.info('OnResizeScreen:');
     if (!this.webview2) {
       return;
     }
     const bounds = winApi.create.rect();
     winApi.user.GetClientRect(this.windowHandle, bounds.pointer);
-    this.webview2.Bounds = bounds;
+    this.webview2.controllers.bounds = bounds;
   }
 
   /**
@@ -310,7 +400,10 @@ export class WebViewWindow {
    * @param bigIcon The big icon image data. (32x32)
    * @returns The WebViewWindow instance.
    */
-  public setIcon(smallIcon?: Uint8Array, bigIcon?: Uint8Array): this {
+  public setIcon(
+    smallIcon?: Uint8Array<ArrayBuffer>,
+    bigIcon?: Uint8Array<ArrayBuffer>,
+  ): this {
     [smallIcon, bigIcon].forEach((icon, index) => {
       if (!icon) {
         return;
@@ -327,8 +420,8 @@ export class WebViewWindow {
       winApi.user.SendMessage(
         this.windowHandle,
         winApi.windowMessage.WM_SETICON,
-        Deno.UnsafePointer.create(BigInt(index)), // ICON_SMALL = 0, ICON_BIG = 1
-        this.hIcons[index],
+        BigInt(index), // ICON_SMALL = 0, ICON_BIG = 1
+        BigInt.asIntN(64, Deno.UnsafePointer.value(this.hIcons[index])),
       );
     });
     return this;

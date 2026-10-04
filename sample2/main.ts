@@ -1,31 +1,18 @@
-// Sample2
-// This sample is use SetVirtualHostNameToFolderMapping.
-// docs/ folder is used as a virtual host.
-// Exec: deno task start:2
+// WebView2 serves a physical docs/ directory without a server or resource handler.
+// Run from this directory: deno task start
 
-import { WeapnApp } from '@azulamb/weapn';
+import { WeapnApp } from "@azulamb/weapn/app";
 
-const app = new WeapnApp(import.meta, { logger: console });
-app.setUserDataFolder();
-app.setWeapnMessage();
-
-await app.init({
-  includePath: true,
-  debugMode: true,
-});
-app.developerToolsEnabled = true;
-
-app.webview2.SetVirtualHostNameToFolderMapping(
-  'app.local',
-  // Target is PROJECT_DIR/docs/
-  // Source file is PROJECT_DIR/sample2/main.ts, but start in PROJECT_DIR/
-  app.getAppFolder('./docs/', Deno.cwd()),
-  // If target is PROJECT_DIR/sample2/docs/
-  // app.getAppFolder('./docs/'),
-  {
-    allow: true,
-  },
+const app = new WeapnApp(import.meta, { title: "Virtual host folder mapping" });
+app.setVirtualHostNameToFolderMapping(
+  "app.example",
+  new URL("./docs/", import.meta.url),
 );
-app.webview2.Navigate('https://app.local/index.html');
-
-app.run();
+app.onMessage(async ({ data }) => {
+  if (data === "maximize") await app.window.maximize();
+  if (data === "restore") await app.window.restore();
+  if (data === "close") await app.window.close();
+});
+await app.start();
+await app.setUrl("https://app.example/index.html");
+await app.closed;

@@ -1,4 +1,8 @@
 .cache/
 tmp/
+.weapn-build/
+.weapn-data/
+dist/
 *.dll
 *.ico
+*.exe

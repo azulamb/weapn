@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "start": "deno run --allow-read --allow-write --allow-ffi --allow-env --allow-net main.ts",
+    "check": "deno check main.ts && deno lint"
+  },
+  "imports": {
+    "@azulamb/weapn": "jsr:@azulamb/weapn@^0.3.0"
+  }
+}
