@@ -18,9 +18,9 @@ const app = new WeapnApp(import.meta, {
 if (Deno.args.includes("--startup-timing-folder")) {
   app.setVirtualHostNameToFolderMapping(
     host,
-    new URL("./frontend/", import.meta.url),
+    new URL("./docs/", import.meta.url),
   );
-} else app.mountAssets(new URL("./frontend/", import.meta.url), origin);
+} else app.mountAssets(new URL("./docs/", import.meta.url), origin);
 app.onMessage(async ({ data }) => {
   if (!data || typeof data !== "object" || !("type" in data)) {
     return;

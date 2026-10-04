@@ -1,17 +1,58 @@
 import { build } from '../build.mod.ts';
 import { join } from '@std/path';
 
-function contains(bytes: Uint8Array, image: Uint8Array): boolean {
-  for (
-    let offset = bytes.indexOf(image[0]);
-    offset >= 0;
-    offset = bytes.indexOf(image[0], offset + 1)
-  ) {
-    if (image.every((byte, index) => bytes[offset + index] === byte)) {
-      return true;
+// Read RT_GROUP_ICON and RT_ICON from a compiled Windows PE, since Deno re-encodes ICO images.
+function executableIcon(
+  bytes: Uint8Array,
+): { dimensions: number[][]; image: Uint8Array } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const nt = view.getUint32(0x3c, true);
+  const optional = nt + 24;
+  const sections = optional + view.getUint16(nt + 20, true);
+  const address = (rva: number): number => {
+    for (let i = 0; i < view.getUint16(nt + 6, true); ++i) {
+      const section = sections + i * 40;
+      const start = view.getUint32(section + 12, true);
+      const size = Math.max(
+        view.getUint32(section + 8, true),
+        view.getUint32(section + 16, true),
+      );
+      if (rva >= start && rva < start + size) {
+        return view.getUint32(section + 20, true) + rva - start;
+      }
     }
-  }
-  return false;
+    throw new Error('Resource RVA is outside the PE sections');
+  };
+  const directories = optional +
+    (view.getUint16(optional, true) === 0x20b ? 112 : 96);
+  const root = address(view.getUint32(directories + 16, true));
+  const resource = (type: number): Uint8Array | undefined => {
+    const count = view.getUint16(root + 12, true) +
+      view.getUint16(root + 14, true);
+    for (let i = 0; i < count; ++i) {
+      const entry = root + 16 + i * 8;
+      if (view.getUint32(entry, true) !== type) continue;
+      let offset = view.getUint32(entry + 4, true);
+      while (offset & 0x80000000) {
+        const directory = root + (offset & 0x7fffffff);
+        offset = view.getUint32(directory + 20, true);
+      }
+      const data = root + offset;
+      const start = address(view.getUint32(data, true));
+      return bytes.subarray(start, start + view.getUint32(data + 4, true));
+    }
+    return undefined;
+  };
+  const group = resource(14);
+  if (!group) return { dimensions: [], image: new Uint8Array() };
+  const header = new DataView(group.buffer, group.byteOffset, group.byteLength);
+  return {
+    dimensions: Array.from(
+      { length: header.getUint16(4, true) },
+      (_, index) => [group[6 + index * 14], group[7 + index * 14]],
+    ),
+    image: resource(3) ?? new Uint8Array(),
+  };
 }
 
 function firstIconImage(bytes: Uint8Array): Uint8Array {
@@ -63,16 +104,15 @@ worker.onmessage = (event) => { console.log(event.data); clearTimeout(timer); wo
         workers: [remote, import.meta.resolve('@azulamb/weapn/worker')],
         permissions: [`--allow-import=127.0.0.1:${server.addr.port}`],
       });
-      const defaultIcon = firstIconImage(
-        await Deno.readFile(new URL('../res/icon.ico', import.meta.url)),
-      );
-      if (!contains(await Deno.readFile(executable), defaultIcon)) {
-        throw new Error('Default icon image was not embedded');
-      }
-      // Create a custom single-image ICO from the bundled multi-image icon.
       const bundled = await Deno.readFile(
         new URL('../res/icon.ico', import.meta.url),
       );
+      const defaultIcon = firstIconImage(bundled);
+      const embedded = executableIcon(await Deno.readFile(executable));
+      if (!embedded.dimensions.length || !embedded.image.length) {
+        throw new Error('Missing default icon');
+      }
+      // Create a custom single-image ICO from the bundled multi-image icon.
       const custom = new Uint8Array(22 + defaultIcon.length);
       custom.set(bundled.subarray(0, 22));
       custom.set(defaultIcon, 22);
@@ -81,6 +121,8 @@ worker.onmessage = (event) => { console.log(event.data); clearTimeout(timer); wo
       header.setUint32(18, 22, true);
       const customPath = join(directory, 'custom.ico');
       await Deno.writeFile(customPath, custom);
+      const sameImage = (a: Uint8Array, b: Uint8Array) =>
+        a.length === b.length && a.every((byte, index) => b[index] === byte);
       for (const icon of [null, customPath]) {
         const output = join(
           directory,
@@ -94,13 +136,13 @@ worker.onmessage = (event) => { console.log(event.data); clearTimeout(timer); wo
           icon,
           permissions: [`--allow-import=127.0.0.1:${server.addr.port}`],
         });
-        const bytes = await Deno.readFile(output);
+        const actual = executableIcon(await Deno.readFile(output));
         if (icon === null) {
-          if (contains(bytes, defaultIcon)) {
-            throw new Error('null embedded the package default icon');
+          if (actual.dimensions.length || actual.image.length) {
+            throw new Error('null embedded an icon');
           }
         } else if (
-          !contains(bytes, firstIconImage(await Deno.readFile(icon)))
+          !actual.image.length || sameImage(actual.image, embedded.image)
         ) {
           throw new Error('Custom icon image was not embedded');
         }
