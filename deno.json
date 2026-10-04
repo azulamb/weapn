@@ -20,6 +20,10 @@
     "check:samples": "deno run --allow-read --allow-write --allow-run --allow-net tools/check_samples.ts"
   },
   "lock": false,
+  "minimumDependencyAge": {
+    "age": "P1D",
+    "exclude": ["jsr:@azulamb/webview2", "jsr:@azulamb/winapi"]
+  },
   "lint": {
     "include": [
       "./sample*",
