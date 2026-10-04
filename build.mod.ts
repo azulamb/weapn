@@ -1,5 +1,5 @@
 import { dirname, isAbsolute, join, resolve, toFileUrl } from '@std/path';
-import { copy } from '@azulamb/webview2/copy';
+import { copy, DLL_VERSION } from '@azulamb/webview2/copy';
 
 export interface BuildOptions {
   entry: string;
@@ -59,5 +59,7 @@ export async function build(options: BuildOptions): Promise<void> {
   if (!result.success) {
     throw new Error(`deno compile failed (${result.code}).`);
   }
-  await copy(join(dirname(output), 'webview2.dll'));
+  await copy(join(dirname(output), 'webview2.dll'), {
+    expectedVersion: DLL_VERSION,
+  });
 }

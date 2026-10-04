@@ -1,5 +1,10 @@
 import { dirname, fromFileUrl, isAbsolute, join, resolve } from '@std/path';
-import { copy } from '@azulamb/webview2/copy';
+import { ensureDLL } from '@azulamb/webview2/copy';
+import { readResponseBody, waitForResponse } from './support/response.ts';
+import { isFromUI } from './ui_protocol.ts';
+import { isBackgroundColor } from './support/background_color.ts';
+import type { WeapnLogger } from './types.ts';
+export type { WeapnLogger } from './types.ts';
 import { isCompiled } from './support/compile.ts';
 import type {
   FromUI,
@@ -7,7 +12,7 @@ import type {
   ToUI,
   UIOptions,
   VirtualHostMapping,
-  WindowAction,
+  WindowCommand,
 } from './ui_protocol.ts';
 
 let workerURL = new URL('./ui_worker_entry.ts', import.meta.url).href;
@@ -23,9 +28,15 @@ export interface WorkerAppOptions {
   width?: number;
   height?: number;
   developerTools?: boolean;
+  /** Opaque initial background for the native window and WebView2, in #RRGGBB format. */
+  backgroundColor?: string;
   resourceFilter?: string;
   resourceTimeoutMs?: number;
   startupTimeoutMs?: number;
+  maxConcurrentRequests?: number;
+  maxResponseBytes?: number;
+  dllVersion?: string;
+  logger?: WeapnLogger;
 }
 export interface WebMessage {
   source: string;
@@ -51,6 +62,7 @@ export class WeapnApp {
   private windowHandler?: (event: { message: number }) => unknown;
   private resourceHandler?: (request: Request) => Response | Promise<Response>;
   private virtualHosts = new Map<string, VirtualHostMapping>();
+  private activeRequests = new Map<number, AbortController>();
   private abort = new AbortController();
   private ready?: { resolve: () => void; reject: (error: Error) => void };
   private resolveClosed!: () => void;
@@ -61,19 +73,19 @@ export class WeapnApp {
   });
   readonly window: WindowController = {
     maximize: (): Promise<void> => {
-      return this.command('maximize');
+      return this.command({ action: 'maximize' });
     },
     minimize: (): Promise<void> => {
-      return this.command('minimize');
+      return this.command({ action: 'minimize' });
     },
     restore: (): Promise<void> => {
-      return this.command('restore');
+      return this.command({ action: 'restore' });
     },
     setTitle: (title: string): Promise<void> => {
-      return this.command('title', title);
+      return this.command({ action: 'title', value: title });
     },
     close: (): Promise<void> => {
-      return this.command('close');
+      return this.command({ action: 'close' });
     },
   };
 
@@ -101,7 +113,7 @@ export class WeapnApp {
     return this;
   }
   setUrl(url: string): Promise<void> {
-    return this.command('navigate', url);
+    return this.command({ action: 'navigate', value: url });
   }
 
   /** Register before start(). WebView2 reads a physical directory; exe-embedded assets need mountAssets(). */
@@ -127,11 +139,25 @@ export class WeapnApp {
     }
     this.started = true;
     const options = this.options;
+    if (
+      options.backgroundColor !== undefined &&
+      !isBackgroundColor(options.backgroundColor)
+    ) {
+      const error = new TypeError('backgroundColor must be #RRGGBB.');
+      this.finish(error);
+      throw error;
+    }
     const timeout = options.startupTimeoutMs ?? 30_000;
     const resourceTimeout = options.resourceTimeoutMs ?? 30_000;
+    const maxConcurrentRequests = options.maxConcurrentRequests ?? 64;
+    const maxResponseBytes = options.maxResponseBytes ?? 64 * 1024 * 1024;
     if (
-      !Number.isFinite(timeout) || timeout <= 0 ||
-      !Number.isFinite(resourceTimeout) || resourceTimeout <= 0
+      !Number.isSafeInteger(timeout) || timeout <= 0 ||
+      !Number.isSafeInteger(resourceTimeout) || resourceTimeout <= 0 ||
+      !Number.isSafeInteger(maxConcurrentRequests) ||
+      maxConcurrentRequests <= 0 ||
+      !Number.isSafeInteger(maxResponseBytes) || maxResponseBytes <= 0 ||
+      maxResponseBytes > 0xFFFFFFFF
     ) {
       this.finish(new Error('Timeouts must be positive finite numbers.'));
       throw new Error('Timeouts must be positive finite numbers.');
@@ -141,24 +167,10 @@ export class WeapnApp {
     const absolute = (path: string) =>
       isAbsolute(path) ? path : join(base, path);
     const dllPath = absolute(options.dllPath ?? 'webview2.dll');
-    // Development only: packaged applications receive their DLL from build().
-    if (!compiled && options.dllPath === undefined) {
-      try {
-        try {
-          const stat = await Deno.stat(dllPath);
-          if (!stat.isFile) throw new Error(`Not a DLL file: ${dllPath}`);
-        } catch (error) {
-          if (!(error instanceof Deno.errors.NotFound)) throw error;
-          await copy(dllPath);
-        }
-      } catch (error) {
-        this.finish(error instanceof Error ? error : new Error(String(error)));
-        throw error;
-      }
-    }
     const ready = new Promise<void>((resolve, reject) => {
       this.ready = { resolve, reject };
     });
+    void ready.catch(() => {});
     const timer = setTimeout(
       () => {
         return this.finish(new Error('UI Worker startup timed out.'));
@@ -166,8 +178,31 @@ export class WeapnApp {
       timeout,
     );
     try {
+      if (!compiled && options.dllPath === undefined) {
+        await Promise.race([
+          ensureDLL(dllPath, {
+            signal: this.abort.signal,
+            expectedVersion: options.dllVersion,
+          }),
+          ready,
+        ]);
+      } else if (options.dllVersion) {
+        await Promise.race([
+          ensureDLL(dllPath, {
+            signal: this.abort.signal,
+            expectedVersion: options.dllVersion,
+            existingOnly: true,
+          }),
+          ready,
+        ]);
+      }
+      this.abort.signal.throwIfAborted();
       this.worker = new Worker(workerURL, { type: 'module' });
-      this.worker.onmessage = (event: MessageEvent<FromUI>) => {
+      this.worker.onmessage = (event: MessageEvent<unknown>) => {
+        if (!isFromUI(event.data)) {
+          this.finish(new Error('Invalid UI Worker message.'));
+          return;
+        }
         void this.receive(event.data);
       };
       this.worker.onerror = (event) => {
@@ -183,10 +218,13 @@ export class WeapnApp {
         width: options.width,
         height: options.height,
         developerTools: options.developerTools,
+        backgroundColor: options.backgroundColor,
         resourceFilter: this.resourceHandler
           ? options.resourceFilter ?? 'https://app.local/*'
           : undefined,
         resourceTimeoutMs: resourceTimeout,
+        maxConcurrentRequests,
+        maxResponseBytes,
         virtualHosts: [...this.virtualHosts.values()],
       };
       this.send({ type: 'init', options: init });
@@ -225,7 +263,13 @@ export class WeapnApp {
       const file = new URL(root);
       file.pathname += relative.split('/').map(encodeURIComponent).join('/');
       try {
-        const bytes = await Deno.readFile(file);
+        const stat = await Deno.stat(file);
+        if (stat.size > (this.options.maxResponseBytes ?? 64 * 1024 * 1024)) {
+          throw new RangeError('Asset exceeds response byte limit.');
+        }
+        const bytes = request.method === 'HEAD'
+          ? null
+          : await Deno.readFile(file, { signal: request.signal });
         const extension = relative.split('.').at(-1)?.toLowerCase() ?? '';
         const mime: Record<string, string> = {
           html: 'text/html; charset=utf-8',
@@ -262,7 +306,7 @@ export class WeapnApp {
     }
     this.worker.postMessage(message, transfer);
   }
-  private async command(action: WindowAction, value?: string): Promise<void> {
+  private async command(command: WindowCommand): Promise<void> {
     if (!this.started || this.ready || this.stopped) {
       throw new Error('Call and await start() before window operations.');
     }
@@ -270,7 +314,7 @@ export class WeapnApp {
     return await new Promise<void>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       try {
-        this.send({ type: 'command', id, action, value });
+        this.send({ type: 'command', id, ...command });
       } catch (error) {
         this.pending.delete(id);
         reject(error);
@@ -282,6 +326,14 @@ export class WeapnApp {
       return;
     }
     switch (message.type) {
+      case 'log':
+        (this.options.logger ?? console)[message.level](...message.messages);
+        break;
+      case 'cancel':
+        this.activeRequests.get(message.id)?.abort(
+          new Error('Resource request cancelled by UI.'),
+        );
+        break;
       case 'ready':
         this.ready?.resolve();
         this.ready = undefined;
@@ -306,22 +358,55 @@ export class WeapnApp {
             ? this.messageHandler?.(message)
             : this.windowHandler?.(message));
         } catch (error) {
-          console.error('Weapn event handler failed:', error);
+          (this.options.logger ?? console).error(
+            'Weapn event handler failed:',
+            error,
+          );
         }
         break;
       case 'request': {
+        if (
+          this.activeRequests.size >= (this.options.maxConcurrentRequests ?? 64)
+        ) {
+          this.send({
+            type: 'response',
+            id: message.id,
+            response: {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: [],
+              body: new Uint8Array(),
+            },
+          });
+          break;
+        }
+        const controller = new AbortController();
+        this.activeRequests.set(message.id, controller);
+        const timer = setTimeout(
+          () => controller.abort(new Error('Resource request timed out.')),
+          this.options.resourceTimeoutMs ?? 30_000,
+        );
         let response: Response;
         try {
-          response = await this.resourceHandler!(
-            new Request(message.url, {
-              method: message.method,
-              signal: this.abort.signal,
-            }),
+          response = await waitForResponse(
+            Promise.resolve().then(() =>
+              this.resourceHandler!(
+                new Request(message.url, {
+                  method: message.method,
+                  signal: controller.signal,
+                }),
+              )
+            ),
+            controller.signal,
           );
           if (!(response instanceof Response)) {
             throw new Error('Resource handler must return a Response.');
           }
-          const body = new Uint8Array(await response.arrayBuffer());
+          const body = await readResponseBody(
+            response,
+            this.options.maxResponseBytes ?? 64 * 1024 * 1024,
+            controller.signal,
+          );
           const result: ResourceResult = {
             status: response.status,
             statusText: response.statusText,
@@ -334,19 +419,29 @@ export class WeapnApp {
             ]);
           }
         } catch (error) {
-          console.error('Weapn resource handler failed:', error);
+          if (!controller.signal.aborted) {
+            (this.options.logger ?? console).error(
+              'Weapn resource handler failed:',
+              error,
+            );
+          }
           if (!this.stopped) {
             this.send({
               type: 'response',
               id: message.id,
               response: {
-                status: 500,
-                statusText: 'Internal Server Error',
+                status: controller.signal.aborted ? 504 : 500,
+                statusText: controller.signal.aborted
+                  ? 'Gateway Timeout'
+                  : 'Internal Server Error',
                 headers: [],
                 body: new Uint8Array(),
               },
             });
           }
+        } finally {
+          clearTimeout(timer);
+          this.activeRequests.delete(message.id);
         }
       }
     }
@@ -356,7 +451,11 @@ export class WeapnApp {
       return;
     }
     this.stopped = true;
-    this.abort.abort();
+    this.abort.abort(error);
+    for (const controller of this.activeRequests.values()) {
+      controller.abort(error);
+    }
+    this.activeRequests.clear();
     this.ready?.reject(error);
     this.ready = undefined;
     for (const pending of this.pending.values()) pending.reject(error);

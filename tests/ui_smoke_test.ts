@@ -1,5 +1,13 @@
 import { WeapnApp } from '../app.mod.ts';
 import { fromFileUrl } from '@std/path';
+import { copy, DLL_VERSION } from '@azulamb/webview2/copy';
+const testDLL = new URL('../.weapn-data/test-webview2.dll', import.meta.url);
+let preparedDLL: Promise<void> | undefined;
+async function dllPath(): Promise<string> {
+  const path = fromFileUrl(testDLL);
+  await (preparedDLL ??= copy(path, { expectedVersion: DLL_VERSION }));
+  return path;
+}
 
 // Opt-in integration check: creates a real window and closes it automatically.
 Deno.test({
@@ -10,16 +18,12 @@ Deno.test({
   sanitizeResources: false,
   async fn() {
     const app = new WeapnApp(import.meta, {
-      dllPath: fromFileUrl(
-        new URL(
-          '../../deno_windows_webview2/webview2/x64/Release/webview2.dll',
-          import.meta.url,
-        ),
-      ),
+      dllPath: await dllPath(),
       userDataFolder: fromFileUrl(
-        new URL('../.weapn-build/smoke-profile/', import.meta.url),
+        new URL('../.weapn-data/smoke-profile/', import.meta.url),
       ),
       startupTimeoutMs: 15_000,
+      backgroundColor: '#123456',
     });
     let loaded!: () => void;
     const rendered = new Promise<void>((resolve) => {
@@ -79,12 +83,7 @@ Deno.test({
   sanitizeResources: false,
   async fn() {
     const app = new WeapnApp(import.meta, {
-      dllPath: fromFileUrl(
-        new URL(
-          '../../deno_windows_webview2/webview2/x64/Release/webview2.dll',
-          import.meta.url,
-        ),
-      ),
+      dllPath: await dllPath(),
       userDataFolder: fromFileUrl(
         new URL('../.weapn-data/mapping-test/', import.meta.url),
       ),

@@ -1,18 +1,18 @@
 // WebView2 serves a physical docs/ directory without a server or resource handler.
 // Run from this directory: deno task start
 
-import { WeapnApp } from '@azulamb/weapn/app';
+import { WeapnApp } from "@azulamb/weapn/app";
 
-const app = new WeapnApp(import.meta, { title: 'Virtual host folder mapping' });
+const app = new WeapnApp(import.meta, { title: "Virtual host folder mapping" });
 app.setVirtualHostNameToFolderMapping(
-  'app.local',
-  new URL('./docs/', import.meta.url),
+  "app.local",
+  new URL("./docs/", import.meta.url),
 );
 app.onMessage(async ({ data }) => {
-  if (data === 'maximize') await app.window.maximize();
-  if (data === 'restore') await app.window.restore();
-  if (data === 'close') await app.window.close();
+  if (data === "maximize") await app.window.maximize();
+  if (data === "restore") await app.window.restore();
+  if (data === "close") await app.window.close();
 });
 await app.start();
-await app.setUrl('https://app.local/index.html');
+await app.setUrl("https://app.local/index.html");
 await app.closed;

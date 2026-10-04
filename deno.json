@@ -1,6 +1,6 @@
 {
   "name": "@azulamb/weapn",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
@@ -12,10 +12,12 @@
     "./types": "./types.ts"
   },
   "tasks": {
-    "test:worker": "deno test --allow-read --allow-write tests/worker_app_test.ts",
+    "test:worker": "deno test --allow-read --allow-write --allow-net tests/worker_app_test.ts tests/protocol_test.ts",
     "test:build": "deno test --allow-run --allow-read --allow-write --allow-net --allow-env tests/build_test.ts",
-    "check:publish": "deno lint && deno publish --dry-run --allow-dirty",
-    "check": "deno task check:publish"
+    "check:publish": "deno lint && deno task test:worker && deno publish --dry-run --allow-dirty",
+    "check": "deno task check:publish",
+    "test:native": "deno test --allow-read --allow-write --allow-env --allow-ffi --allow-net tests/ui_smoke_test.ts",
+    "check:samples": "deno run --allow-read --allow-write --allow-run --allow-net tools/check_samples.ts"
   },
   "lock": false,
   "lint": {
@@ -24,7 +26,9 @@
       "./src",
       "deno.json",
       "./*mod.ts",
-      "types.ts"
+      "types.ts",
+      "./tests",
+      "./tools"
     ]
   },
   "fmt": {
@@ -33,13 +37,15 @@
       "./src",
       "deno.json",
       "./*mod.ts",
-      "types.ts"
+      "types.ts",
+      "./tests",
+      "./tools"
     ],
     "singleQuote": true
   },
   "imports": {
     "@std/path": "jsr:@std/path@^1.0.8",
-    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.5.0",
+    "@azulamb/webview2": "jsr:@azulamb/webview2@^0.6.0",
     "@azulamb/winapi": "jsr:@azulamb/winapi@^0.3.2",
     "@azulamb/weapn": "./mod.ts"
   }

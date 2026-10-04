@@ -15,6 +15,7 @@ import type {
 } from './libs/win_api.ts';
 import { LoadMultiIconFromIconGroupResource } from './support/icon_loader.ts';
 import type { WeapnLogger } from './types.ts';
+import { backgroundColorChannels } from './support/background_color.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
@@ -189,14 +190,40 @@ export class WebViewWindow {
    * @param dir The directory path to set as the user data folder.
    * @returns The WebViewWindow instance.
    */
-  public initWindow(): this {
+  public initWindow(backgroundColor?: string): this {
+    let brush: Deno.PointerValue = null;
+    if (backgroundColor !== undefined) {
+      const { red, green, blue } = backgroundColorChannels(backgroundColor);
+      const gdi = Deno.dlopen('gdi32.dll', {
+        CreateSolidBrush: { parameters: ['u32'], result: 'pointer' },
+      });
+      try {
+        brush = gdi.symbols.CreateSolidBrush(red | (green << 8) | (blue << 16));
+      } finally {
+        gdi.close();
+      }
+      if (!brush) throw new Error('CreateSolidBrush failed.');
+      this.windowClass.hbrBackground = brush;
+    }
     // Register WindowClassEx
     const result = winApi.user.RegisterClassEx(this.windowClass.pointer);
     if (!result) {
+      const lastError = winApi.kernel.GetLastError();
+      if (brush) {
+        const gdi = Deno.dlopen('gdi32.dll', {
+          DeleteObject: { parameters: ['pointer'], result: 'i32' },
+        });
+        try {
+          gdi.symbols.DeleteObject(brush);
+        } finally {
+          gdi.close();
+        }
+      }
       throw new Error(
-        `Failure RegisterClassEx. [GetLastError=${winApi.kernel.GetLastError()}]`,
+        `Failure RegisterClassEx. [GetLastError=${lastError}]`,
       );
     }
+    // After successful registration, UnregisterClass owns the background brush cleanup.
     return this;
   }
 

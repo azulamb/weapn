@@ -41,6 +41,24 @@ class FakeWorker {
     this.terminated = true;
   }
 }
+Deno.test('initial background validates and is forwarded to the UI Worker', () =>
+  withWorker(async () => {
+    const invalid = new WeapnApp(import.meta, {
+      dllPath: './test.dll',
+      backgroundColor: '#12345G',
+    });
+    await rejected(invalid.start());
+    const app = new WeapnApp(import.meta, {
+      dllPath: './test.dll',
+      backgroundColor: '#123456',
+    });
+    await app.start();
+    const init = FakeWorker.last.sent.find((message) =>
+      message.type === 'init'
+    );
+    assert(init?.type === 'init' && init.options.backgroundColor === '#123456');
+    await app.window.close();
+  }));
 async function withWorker(test: () => Promise<void>) {
   const original = globalThis.Worker;
   globalThis.Worker = FakeWorker as unknown as typeof Worker;
@@ -73,6 +91,72 @@ async function responseFrom(worker: FakeWorker, id: number) {
   }
   throw new Error('No resource response');
 }
+
+Deno.test('resource cancellation aborts its Request and releases the concurrency slot', () =>
+  withWorker(async () => {
+    let request!: Request;
+    const app = new WeapnApp(import.meta, {
+      dllPath: './test.dll',
+      maxConcurrentRequests: 1,
+    });
+    app.onResourceRequest((value) => {
+      request = value;
+      return new Promise<Response>(() => {});
+    });
+    await app.start();
+    const worker = FakeWorker.last;
+    worker.emit({
+      type: 'request',
+      id: 1,
+      url: 'https://app.local/',
+      method: 'GET',
+    });
+    worker.emit({
+      type: 'request',
+      id: 2,
+      url: 'https://app.local/',
+      method: 'GET',
+    });
+    assert((await responseFrom(worker, 2)).status === 503);
+    worker.emit({ type: 'cancel', id: 1 });
+    assert((await responseFrom(worker, 1)).status === 504);
+    assert(request.signal.aborted);
+    await app.window.close();
+  }));
+
+Deno.test('startup timeout includes stalled DLL preparation', () =>
+  withWorker(async () => {
+    const originalCopy = Deno.copyFile;
+    const originalFetch = globalThis.fetch;
+    const previous = Deno.cwd();
+    const directory = await Deno.makeTempDir();
+    let release!: () => void;
+    Deno.copyFile = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    globalThis.fetch = (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (signal?.aborted) reject(signal.reason);
+        else {signal?.addEventListener('abort', () => reject(signal.reason), {
+            once: true,
+          });}
+      });
+    try {
+      Deno.chdir(directory);
+      const app = new WeapnApp(import.meta, { startupTimeoutMs: 20 });
+      await rejected(app.start());
+      await app.closed;
+    } finally {
+      release?.();
+      Deno.copyFile = originalCopy;
+      globalThis.fetch = originalFetch;
+      Deno.chdir(previous);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await Deno.remove(directory, { recursive: true });
+    }
+  }));
 
 Deno.test('development startup copies a missing DLL and preserves an existing DLL', () =>
   withWorker(async () => {
@@ -224,11 +308,11 @@ Deno.test('asset routing supports index, MIME, HEAD, encoded names and rejects t
         const [path, method, status] = cases[id];
         worker.emit({
           type: 'request',
-          id,
+          id: id + 1,
           url: 'https://app.local' + path,
           method,
         });
-        const response = await responseFrom(worker, id);
+        const response = await responseFrom(worker, id + 1);
         assert(response.status === status, `${path}: ${response.status}`);
         if (method === 'HEAD') assert(response.body.length === 0);
         if (path === '/') {

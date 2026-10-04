@@ -1,7 +1,7 @@
-import { build } from '@azulamb/weapn/build';
+import { build } from "@azulamb/weapn/build";
 
 await build({
-  entry: './main.ts',
-  output: './app.exe',
-  assets: ['./docs/'],
+  entry: "./main.ts",
+  output: "./app.exe",
+  assets: ["./docs/"],
 });

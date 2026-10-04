@@ -7,6 +7,9 @@ import {
 } from './libs/webview2.ts';
 import { IStream } from '@azulamb/webview2';
 import type { FromUI, ResourceResult, ToUI, UIOptions } from './ui_protocol.ts';
+import { isToUI } from './ui_protocol.ts';
+import type { WeapnLogger } from './types.ts';
+import { backgroundColorChannels } from './support/background_color.ts';
 
 const ole = Deno.dlopen('ole32.dll', {
   CoInitializeEx: { parameters: ['pointer', 'u32'], result: 'i32' },
@@ -39,6 +42,18 @@ export function startUIWorker(): void {
   let options: UIOptions;
   let running = false;
   let initialized = false;
+  let previousBackground: string | undefined;
+  let backgroundEnvironmentSet = false;
+  function restoreBackgroundEnvironment(): void {
+    if (!backgroundEnvironmentSet) return;
+    if (previousBackground === undefined) {
+      Deno.env.delete('WEBVIEW2_DEFAULT_BACKGROUND_COLOR');
+    } else {Deno.env.set(
+        'WEBVIEW2_DEFAULT_BACKGROUND_COLOR',
+        previousBackground,
+      );}
+    backgroundEnvironmentSet = false;
+  }
   let nextRequest = 0;
   const requests = new Map<
     number,
@@ -52,6 +67,20 @@ export function startUIWorker(): void {
   const post = (message: FromUI) => {
     return scope.postMessage(message);
   };
+  const log = (level: keyof WeapnLogger) => (...messages: unknown[]) => {
+    post({
+      type: 'log',
+      level,
+      messages: messages.map(String),
+    });
+  };
+  const logger: WeapnLogger = {
+    log: log('log'),
+    info: log('info'),
+    debug: log('debug'),
+    warn: log('warn'),
+    error: log('error'),
+  };
 
   function respond(id: number, response: ResourceResult): void {
     const pending = requests.get(id);
@@ -63,6 +92,9 @@ export function startUIWorker(): void {
     let streamPointer: Deno.PointerValue = null;
     let responsePointer: Deno.PointerValue = null;
     try {
+      if (response.body.length > options.maxResponseBytes) {
+        throw new Error('Response exceeds configured byte limit.');
+      }
       // SHCreateMemStream copies the bytes. Read never calls back into JavaScript.
       streamPointer = shell.symbols.SHCreateMemStream(
         response.body,
@@ -100,6 +132,7 @@ export function startUIWorker(): void {
     return stopping ??= cleanup();
   }
   async function cleanup(): Promise<void> {
+    restoreBackgroundEnvironment();
     for (const [id] of requests) {
       try {
         respond(id, {
@@ -109,7 +142,7 @@ export function startUIWorker(): void {
           body: new Uint8Array(),
         });
       } catch (error) {
-        console.error(error);
+        logger.error(error);
       }
     }
     if (window) {
@@ -134,7 +167,7 @@ export function startUIWorker(): void {
     try {
       await stop();
     } catch (cleanup) {
-      console.error(cleanup);
+      logger.error(cleanup);
     }
     post({
       type: 'fatal',
@@ -171,13 +204,21 @@ export function startUIWorker(): void {
       throw new Error('UI Worker is already initialized.');
     }
     options = config;
+    if (options.backgroundColor !== undefined) {
+      previousBackground = Deno.env.get('WEBVIEW2_DEFAULT_BACKGROUND_COLOR');
+      Deno.env.set(
+        'WEBVIEW2_DEFAULT_BACKGROUND_COLOR',
+        'FF' + options.backgroundColor.slice(1).toUpperCase(),
+      );
+      backgroundEnvironmentSet = true;
+    }
     const hr = ole.symbols.CoInitializeEx(null, 2);
     if (hr < 0) {
       throw new Error(`CoInitializeEx failed: ${hr}`);
     }
     initialized = true;
     Deno.env.set('WEBVIEW2_USER_DATA_FOLDER', options.userDataFolder);
-    window = new WebViewWindow(console);
+    window = new WebViewWindow(logger);
     window.onWindowEvent = (message) => {
       return post({ type: 'window', message });
     };
@@ -189,7 +230,7 @@ export function startUIWorker(): void {
     } catch (error) {
       throw new Error(`Failed to load ${options.dllPath}: ${error}`);
     }
-    window.initWindow().createWindow({
+    window.initWindow(options.backgroundColor).createWindow({
       title: options.title,
       width: options.width,
       height: options.height,
@@ -199,6 +240,12 @@ export function startUIWorker(): void {
     window.initWebView(() => {
       try {
         const webview = window!.webview2;
+        if (options.backgroundColor !== undefined) {
+          webview.controllers.defaultBackgroundColor = backgroundColorChannels(
+            options.backgroundColor,
+          );
+        }
+        restoreBackgroundEnvironment();
         webview.settings.areDevToolsEnabled = options.developerTools ?? false;
         for (const mapping of options.virtualHosts ?? []) {
           const result = webview.core.setVirtualHostNameToFolderMapping(
@@ -221,7 +268,7 @@ export function startUIWorker(): void {
               data: args.WebMessageAsJson<unknown>(),
             });
           } catch (error) {
-            console.error(error);
+            logger.error(error);
           }
           return 0;
         });
@@ -253,6 +300,7 @@ export function startUIWorker(): void {
               ).call(pointer);
               const timer = setTimeout(() => {
                 try {
+                  post({ type: 'cancel', id });
                   respond(id, {
                     status: 504,
                     statusText: 'Gateway Timeout',
@@ -264,7 +312,14 @@ export function startUIWorker(): void {
                 }
               }, options.resourceTimeoutMs);
               requests.set(id, { args, argsPointer: pointer, deferral, timer });
-              if (method !== 'GET' && method !== 'HEAD') {
+              if (requests.size > options.maxConcurrentRequests) {
+                respond(id, {
+                  status: 503,
+                  statusText: 'Service Unavailable',
+                  headers: [],
+                  body: new Uint8Array(),
+                });
+              } else if (method !== 'GET' && method !== 'HEAD') {
                 respond(id, {
                   status: 405,
                   statusText: 'Method Not Allowed',
@@ -286,6 +341,10 @@ export function startUIWorker(): void {
   }
 
   scope.onmessage = async (event) => {
+    if (!isToUI(event.data)) {
+      await fail(new Error('Invalid main-to-UI message.'));
+      return;
+    }
     const message = event.data;
     if (message.type === 'command') {
       try {
@@ -303,11 +362,11 @@ export function startUIWorker(): void {
             winApi.user.ShowWindow(window.windowHandle, 9);
             break;
           case 'title':
-            winApi.user.SetWindowText(window.windowHandle, message.value ?? '');
+            winApi.user.SetWindowText(window.windowHandle, message.value);
             break;
           case 'navigate': {
             const result = window.webview2.core.navigate(
-              message.value ?? 'about:blank',
+              message.value,
             );
             if (result < 0) {
               throw new Error(`Navigate failed: ${result}`);
