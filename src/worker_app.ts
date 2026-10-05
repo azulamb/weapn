@@ -25,9 +25,15 @@ export interface WorkerAppOptions {
   dllPath?: string;
   userDataFolder?: string;
   title?: string;
+  /** Initial content width in logical pixels (96 DPI), excluding window borders. */
   width?: number;
+  /** Initial content height in logical pixels (96 DPI), excluding the title bar and borders. */
   height?: number;
   developerTools?: boolean;
+  /** Composite transparent WebView pixels with the desktop. Takes precedence over backgroundColor. */
+  transparent?: boolean;
+  /** Show the native title bar and frame. Defaults to true. */
+  decorations?: boolean;
   /** Opaque initial background for the native window and WebView2, in #RRGGBB format. */
   backgroundColor?: string;
   /** Log startup phase durations through logger.info(). */
@@ -230,6 +236,8 @@ export class WeapnApp {
         width: options.width,
         height: options.height,
         developerTools: options.developerTools,
+        transparent: options.transparent,
+        decorations: options.decorations,
         backgroundColor: options.backgroundColor,
         startupTiming: options.startupTiming,
         resourceFilter: this.resourceHandler

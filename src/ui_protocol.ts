@@ -16,6 +16,8 @@ export interface UIOptions {
   width?: number;
   height?: number;
   developerTools?: boolean;
+  transparent?: boolean;
+  decorations?: boolean;
   backgroundColor?: string;
   startupTiming?: boolean;
   resourceFilter?: string;
@@ -135,6 +137,10 @@ export function isToUI(value: unknown): value is ToUI {
     (options.height === undefined || positive(options.height)) &&
     (options.developerTools === undefined ||
       typeof options.developerTools === 'boolean') &&
+    (options.transparent === undefined ||
+      typeof options.transparent === 'boolean') &&
+    (options.decorations === undefined ||
+      typeof options.decorations === 'boolean') &&
     (options.startupTiming === undefined ||
       typeof options.startupTiming === 'boolean') &&
     (options.virtualHosts === undefined ||

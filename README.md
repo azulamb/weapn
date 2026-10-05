@@ -6,6 +6,7 @@
   - ./sample/
   - ./sample2/
   - ./sample3/
+  - [./sample4/](./sample4/) — Transparent window with a PNG drawn on canvas.
 
 A Windows desktop framework for Deno and WebView2. Native UI runs on an internal
 Worker, while application logic runs on the main thread. Frontend files can be
@@ -29,14 +30,23 @@ Requires Windows x64 and WebView2 Runtime.
 ```ts
 import { WeapnApp } from '@azulamb/weapn/app';
 
-const app = new WeapnApp(import.meta, { title: 'My app' });
+const app = new WeapnApp(import.meta, {
+  title: 'My app',
+  width: 960,
+  height: 640,
+});
 app.mountAssets(new URL('./docs/', import.meta.url));
 await app.start();
 await app.setUrl('https://app.example/index.html');
 await app.closed;
 ```
 
-Place frontend files in `docs/`.
+Place frontend files in `docs/`. `width` and `height` specify the content size
+in logical pixels, excluding the title bar and borders.
+
+For a transparent mascot window, set `transparent: true` and
+`decorations: false`. Keep HTML/CSS backgrounds transparent and use a canvas
+with alpha enabled. `transparent` overrides `backgroundColor`.
 
 ## build.ts
 

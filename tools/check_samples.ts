@@ -17,7 +17,7 @@ async function copySources(from: string, to: string): Promise<void> {
   }
 }
 try {
-  for (const sample of ['sample', 'sample2', 'sample3']) {
+  for (const sample of ['sample', 'sample2', 'sample3', 'sample4']) {
     const directory = join(temporary, sample);
     await copySources(join(root, sample), directory);
     const entries = ['main.ts'];

@@ -4,6 +4,6 @@
     "check": "deno check main.ts && deno lint"
   },
   "imports": {
-    "@azulamb/weapn": "jsr:@azulamb/weapn@^0.3.0"
+    "@azulamb/weapn": "jsr:@azulamb/weapn@^0.4.0"
   }
 }

@@ -16,6 +16,8 @@ import type {
 import { LoadMultiIconFromIconGroupResource } from './support/icon_loader.ts';
 import type { WeapnLogger } from './types.ts';
 import { backgroundColorChannels } from './support/background_color.ts';
+import { WindowSizing } from './support/window_sizing.ts';
+import { enableTransparentWindow } from './support/transparent_window.ts';
 type WEB_VIEW_WINDOW_STATUS = 'PREPARE' | 'RUNNING';
 
 export class WebViewWindow {
@@ -30,6 +32,8 @@ export class WebViewWindow {
   protected styleEx: number;
   protected windowClassEx: WindowClassEx;
   protected hWindow: HWND = null;
+  private sizing?: WindowSizing;
+  private transparent = false;
   protected hIcons: (HICON | null)[] = [null, null]; // SmallIcon, BigIcon
   protected iconResource: (PBYTE | undefined)[] = [];
 
@@ -115,6 +119,12 @@ export class WebViewWindow {
     this.windowClass.setWindowProcedure(
       (hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) => {
         switch (Msg) {
+          case 0x031e: // WM_DWMCOMPOSITIONCHANGED
+            if (this.transparent) enableTransparentWindow(hWnd);
+            break;
+          case 0x02e0: // WM_DPICHANGED
+            this.sizing?.dpiChanged(hWnd, lParam);
+            return 0n;
           case winApi.windowMessage.WM_CREATE:
             this.logger.log('Create window:');
             break;
@@ -191,18 +201,14 @@ export class WebViewWindow {
    * @param dir The directory path to set as the user data folder.
    * @returns The WebViewWindow instance.
    */
-  public initWindow(backgroundColor?: string): this {
+  public initWindow(backgroundColor?: string, transparent = false): this {
+    this.transparent = transparent;
     let brush: Deno.PointerValue = null;
-    if (backgroundColor !== undefined) {
+    if (transparent) {
+      this.windowClass.hbrBackground = winApi.gdi.GetStockObject(4); // BLACK_BRUSH: zero RGB/alpha for DWM.
+    } else if (backgroundColor !== undefined) {
       const { red, green, blue } = backgroundColorChannels(backgroundColor);
-      const gdi = Deno.dlopen('gdi32.dll', {
-        CreateSolidBrush: { parameters: ['u32'], result: 'pointer' },
-      });
-      try {
-        brush = gdi.symbols.CreateSolidBrush(red | (green << 8) | (blue << 16));
-      } finally {
-        gdi.close();
-      }
+      brush = winApi.gdi.CreateSolidBrush(red | (green << 8) | (blue << 16));
       if (!brush) throw new Error('CreateSolidBrush failed.');
       this.windowClass.hbrBackground = brush;
     }
@@ -211,14 +217,7 @@ export class WebViewWindow {
     if (!result) {
       const lastError = winApi.kernel.GetLastError();
       if (brush) {
-        const gdi = Deno.dlopen('gdi32.dll', {
-          DeleteObject: { parameters: ['pointer'], result: 'i32' },
-        });
-        try {
-          gdi.symbols.DeleteObject(brush);
-        } finally {
-          gdi.close();
-        }
+        winApi.gdi.DeleteObject(brush);
       }
       throw new Error(
         `Failure RegisterClassEx. [GetLastError=${lastError}]`,
@@ -232,23 +231,42 @@ export class WebViewWindow {
    * Create the window.
    * @returns The WebViewWindow instance.
    */
-  public createWindow(config: WEAPN_CONFIG = {}): this {
+  public createWindow(
+    config: WEAPN_CONFIG & { decorations?: boolean } = {},
+  ): this {
+    const decorated = config.decorations !== false;
+    if (!decorated) this.style = (0x80000000 | 0x10000000) >>> 0; // WS_POPUP | WS_VISIBLE
+    this.sizing = new WindowSizing();
     this.hWindow = winApi.user.CreateWindowEx(
       this.styleEx,
       this.windowClass.lpszClassName,
       winApi.create.stringPointer(config.title ?? 'Weapn'),
-      this.style,
-      winApi.constant.CW_USEDEFAULT,
-      winApi.constant.CW_USEDEFAULT,
-      config.width ?? winApi.constant.CW_USEDEFAULT,
-      config.height ?? winApi.constant.CW_USEDEFAULT,
+      this.style & ~0x10000000, // Resize before applying WS_VISIBLE.
+      decorated ? winApi.constant.CW_USEDEFAULT : 0,
+      decorated ? winApi.constant.CW_USEDEFAULT : 0,
+      decorated ? winApi.constant.CW_USEDEFAULT : 800,
+      decorated ? winApi.constant.CW_USEDEFAULT : 600,
       null,
       null,
     );
     if (this.windowHandle === null) {
       throw new Error('Failure CreateWindowEx');
     }
+    this.sizing.resizeClient(
+      this.hWindow,
+      this.style,
+      this.styleEx,
+      config.width,
+      config.height,
+    );
+    if (this.transparent) enableTransparentWindow(this.hWindow);
+    if (this.style & 0x10000000) winApi.user.ShowWindow(this.hWindow, 5);
     return this;
+  }
+
+  /** Call on the owning STA after destroying the native window. */
+  public closeSizing(): void {
+    this.sizing?.close();
   }
 
   public show() {}

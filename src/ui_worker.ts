@@ -11,14 +11,6 @@ import { isToUI } from './ui_protocol.ts';
 import type { WeapnLogger } from './types.ts';
 import { backgroundColorChannels } from './support/background_color.ts';
 
-const ole = Deno.dlopen('ole32.dll', {
-  CoInitializeEx: { parameters: ['pointer', 'u32'], result: 'i32' },
-  CoUninitialize: { parameters: [], result: 'void' },
-});
-const shell = Deno.dlopen('shlwapi.dll', {
-  SHCreateMemStream: { parameters: ['buffer', 'u32'], result: 'pointer' },
-});
-
 function release(pointer: Deno.PointerValue): void {
   if (!pointer) {
     return;
@@ -96,10 +88,7 @@ export function startUIWorker(): void {
         throw new Error('Response exceeds configured byte limit.');
       }
       // SHCreateMemStream copies the bytes. Read never calls back into JavaScript.
-      streamPointer = shell.symbols.SHCreateMemStream(
-        response.body,
-        response.body.length,
-      );
+      streamPointer = winApi.shlwapi.SHCreateMemStream(response.body);
       if (!streamPointer) {
         throw new Error('SHCreateMemStream failed.');
       }
@@ -156,10 +145,11 @@ export function startUIWorker(): void {
         winApi.kernel.GetModuleHandle(),
       );
       if (unregistered) window.windowClass.closeWindowProcedure();
+      window.closeSizing();
     }
     running = false;
     if (initialized) {
-      ole.symbols.CoUninitialize();
+      winApi.ole.CoUninitialize();
       initialized = false;
     }
   }
@@ -205,15 +195,17 @@ export function startUIWorker(): void {
       throw new Error('UI Worker is already initialized.');
     }
     options = config;
-    if (options.backgroundColor !== undefined) {
+    if (options.transparent || options.backgroundColor !== undefined) {
       previousBackground = Deno.env.get('WEBVIEW2_DEFAULT_BACKGROUND_COLOR');
       Deno.env.set(
         'WEBVIEW2_DEFAULT_BACKGROUND_COLOR',
-        'FF' + options.backgroundColor.slice(1).toUpperCase(),
+        options.transparent
+          ? '00000000'
+          : 'FF' + options.backgroundColor!.slice(1).toUpperCase(),
       );
       backgroundEnvironmentSet = true;
     }
-    const hr = ole.symbols.CoInitializeEx(null, 2);
+    const hr = winApi.ole.CoInitializeEx(null, 2);
     if (hr < 0) {
       throw new Error(`CoInitializeEx failed: ${hr}`);
     }
@@ -235,11 +227,13 @@ export function startUIWorker(): void {
     } catch (error) {
       throw new Error(`Failed to load ${options.dllPath}: ${error}`);
     }
-    window.initWindow(options.backgroundColor).createWindow({
-      title: options.title,
-      width: options.width,
-      height: options.height,
-    });
+    window.initWindow(options.backgroundColor, options.transparent)
+      .createWindow({
+        title: options.title,
+        width: options.width,
+        height: options.height,
+        decorations: options.decorations,
+      });
     running = true;
     timing(
       'UI init → native window created',
@@ -271,7 +265,14 @@ export function startUIWorker(): void {
             return 0;
           });
         }
-        if (options.backgroundColor !== undefined) {
+        if (options.transparent) {
+          webview.controllers.defaultBackgroundColor = {
+            alpha: 0,
+            red: 0,
+            green: 0,
+            blue: 0,
+          };
+        } else if (options.backgroundColor !== undefined) {
           webview.controllers.defaultBackgroundColor = backgroundColorChannels(
             options.backgroundColor,
           );
