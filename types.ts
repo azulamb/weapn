@@ -1,4 +1,10 @@
 /**
+ * Message identifiers and payload types for the browser-side client helpers.
+ * Application-side WebMessage and window options are exported from /app.
+ * @module
+ */
+
+/**
  * Message type identifiers sent from the client to the app.
  */
 export type WeapnMessageTypeFromClient = 'navigate' | 'title';

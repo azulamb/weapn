@@ -1,3 +1,8 @@
+/**
+ * Compile a Windows executable with its internal UI Worker and frontend assets,
+ * then copy the matching WebView2 DLL beside it.
+ * @module
+ */
 import {
   dirname,
   fromFileUrl,
@@ -8,15 +13,21 @@ import {
 } from '@std/path';
 import { copy, DLL_VERSION } from '@azulamb/webview2/copy';
 
+/** Inputs and compiler options for {@link build}. Paths are relative to the working directory. */
 export interface BuildOptions {
+  /** Application entry file passed to deno compile. */
   entry: string;
+  /** Executable output path; an .exe extension is added when omitted. */
   output: string;
+  /** Files or directories embedded with --include, such as ['./docs/']. */
   assets?: string[];
   /** Additional Worker entrypoints: JSR/HTTP/file URLs or local paths starting with './'. Resolve bare specifiers with import.meta.resolve in your build script. */
   workers?: (string | URL)[];
   /** Omit to use the package's res/icon.ico; null omits --icon. A path uses a custom icon. */
   icon?: string | null;
+  /** Additional deno compile arguments, such as ['--allow-net']. FFI, read and env are enabled by default. */
   permissions?: string[];
+  /** Keep the executable's console window. Defaults to false. */
   terminal?: boolean;
 }
 

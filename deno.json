@@ -1,6 +1,6 @@
 {
   "name": "@azulamb/weapn",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
@@ -14,7 +14,8 @@
   "tasks": {
     "test:worker": "deno test --allow-read --allow-write --allow-net tests/worker_app_test.ts tests/protocol_test.ts",
     "test:build": "deno test --allow-run --allow-read --allow-write --allow-net --allow-env tests/build_test.ts",
-    "check:publish": "deno lint && deno task test:worker && deno publish --dry-run --allow-dirty",
+    "check:docs": "deno doc --lint mod.ts app.mod.ts build.mod.ts client.mod.ts ui-worker.mod.ts src/ui_worker_entry.ts types.ts",
+    "check:publish": "deno lint && deno task check:docs && deno task test:worker && deno publish --dry-run --allow-dirty",
     "check": "deno task check:publish",
     "test:native": "deno test --allow-read --allow-write --allow-env --allow-ffi --allow-net tests/ui_smoke_test.ts tests/transparency_test.ts",
     "check:samples": "deno run --allow-read --allow-write --allow-run --allow-net tools/check_samples.ts"

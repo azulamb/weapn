@@ -1,7 +1,16 @@
 /**
- * Icon.
+ * One image entry from an ICO or CUR directory, including its encoded image bytes.
  */
 export class Icon {
+  /**
+   * Store an icon directory entry without decoding its pixels.
+   * @param width Raw directory width byte; zero represents 256 pixels.
+   * @param height Raw directory height byte; zero represents 256 pixels.
+   * @param colorCount Raw palette size byte; zero indicates no palette count.
+   * @param planes Color planes for ICO entries, or the horizontal hotspot for CUR entries.
+   * @param size Bit depth for ICO entries, or the vertical hotspot for CUR entries.
+   * @param buffer Encoded image data copied from the directory entry.
+   */
   constructor(
     readonly width: number,
     readonly height: number,
@@ -39,9 +48,12 @@ export class IconDirectory {
     return new IconDirectory().loadFromIconFile(buffer);
   }
 
+  /** True for ICO files; false for CUR files. */
   protected iconMode: boolean = true;
+  /** Entries in file order, including entries appended with addIcon. */
   protected icons: Icon[] = [];
 
+  /** Create an empty directory to populate with loadFromIconFile or addIcon. */
   constructor() {
   }
 
@@ -121,6 +133,7 @@ export class IconDirectory {
     return this;
   }
 
+  /** Iterate over images in directory order. */
   [Symbol.iterator](): IterableIterator<Icon> {
     return this.icons[Symbol.iterator]();
   }

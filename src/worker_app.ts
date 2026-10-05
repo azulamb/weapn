@@ -4,6 +4,7 @@ import { readResponseBody, waitForResponse } from './support/response.ts';
 import { isFromUI } from './ui_protocol.ts';
 import { isBackgroundColor } from './support/background_color.ts';
 import type { WeapnLogger } from './types.ts';
+/** Console-compatible logging interface accepted by WorkerAppOptions.logger. */
 export type { WeapnLogger } from './types.ts';
 import { isCompiled } from './support/compile.ts';
 import type {
@@ -21,14 +22,19 @@ export function setUIWorkerURL(url: string | URL): void {
   workerURL = url.toString();
 }
 
+/** Configuration for a Worker-hosted WebView2 window. */
 export interface WorkerAppOptions {
+  /** DLL path. Defaults to webview2.dll beside the exe, or in the development working directory. */
   dllPath?: string;
+  /** WebView2 profile directory. Defaults to ./.weapn-data relative to the DLL path base. */
   userDataFolder?: string;
+  /** Initial native window title. */
   title?: string;
   /** Initial content width in logical pixels (96 DPI), excluding window borders. */
   width?: number;
   /** Initial content height in logical pixels (96 DPI), excluding the title bar and borders. */
   height?: number;
+  /** Enable WebView2 developer tools. */
   developerTools?: boolean;
   /** Composite transparent WebView pixels with the desktop. Takes precedence over backgroundColor. */
   transparent?: boolean;
@@ -38,23 +44,39 @@ export interface WorkerAppOptions {
   backgroundColor?: string;
   /** Log startup phase durations through logger.info(). */
   startupTiming?: boolean;
+  /** WebView2 URL filter for intercepted requests. Defaults to '*' when a resource handler is registered. */
   resourceFilter?: string;
+  /** Maximum resource handler and body read duration, in milliseconds. Defaults to 30,000. */
   resourceTimeoutMs?: number;
+  /** Maximum time to prepare the DLL and initialize the UI Worker, in milliseconds. Defaults to 30,000. */
   startupTimeoutMs?: number;
+  /** Maximum simultaneous intercepted requests. Defaults to 64. */
   maxConcurrentRequests?: number;
+  /** Maximum buffered response size in bytes. Defaults to 64 MiB; must fit a UINT. */
   maxResponseBytes?: number;
+  /** Expected DLL file version. When set, startup validates the DLL against this value. */
   dllVersion?: string;
+  /** Application logging sink. Defaults to console. */
   logger?: WeapnLogger;
 }
+/** A frontend message delivered through WebView2's postMessage bridge. */
 export interface WebMessage {
+  /** URL of the document that sent the message. */
   source: string;
+  /** Decoded message payload. Validate its shape before using it. */
   data: unknown;
 }
+/** Asynchronous commands executed on the native UI thread after application startup. */
 export interface WindowController {
+  /** Maximize the window. */
   maximize(): Promise<void>;
+  /** Minimize the window. */
   minimize(): Promise<void>;
+  /** Restore a minimized or maximized window. */
   restore(): Promise<void>;
+  /** Change the native window title. */
   setTitle(title: string): Promise<void>;
+  /** Request window destruction. Await WeapnApp.closed for final cleanup. */
   close(): Promise<void>;
 }
 
@@ -76,9 +98,11 @@ export class WeapnApp {
   private resolveClosed!: () => void;
   private started = false;
   private stopped = false;
+  /** Resolves after shutdown, including a failed startup. */
   readonly closed: Promise<void> = new Promise<void>((resolve) => {
     this.resolveClosed = resolve;
   });
+  /** Native window commands; call them after start() resolves. */
   readonly window: WindowController = {
     maximize: (): Promise<void> => {
       return this.command({ action: 'maximize' });
@@ -97,15 +121,22 @@ export class WeapnApp {
     },
   };
 
+  /**
+   * Prepare an application without starting the UI Worker.
+   * @param meta Pass the application entry module's import.meta to locate embedded assets.
+   * @param options Native window, profile and request handling configuration.
+   */
   constructor(
     private meta: { url: string },
     private options: WorkerAppOptions = {},
   ) {}
 
+  /** Set the frontend message handler, replacing any previously registered handler. */
   onMessage(handler: (message: WebMessage) => unknown): this {
     this.messageHandler = handler;
     return this;
   }
+  /** Receive forwarded WM_SIZE and WM_DESTROY message identifiers on the main thread. */
   onWindowEvent(handler: (event: { message: number }) => unknown): this {
     this.windowHandler = handler;
     return this;
@@ -120,6 +151,7 @@ export class WeapnApp {
     this.resourceHandler = handler;
     return this;
   }
+  /** Navigate to a URL after start() resolves. Resolves when the command is accepted, not when the page finishes loading. */
   setUrl(url: string): Promise<void> {
     return this.command({ action: 'navigate', value: url });
   }
@@ -141,6 +173,11 @@ export class WeapnApp {
     return this;
   }
 
+  /**
+   * Initialize the native window and WebView2 on the UI Worker. May be called only once.
+   * In development, copies the default DLL when missing; compiled apps require a DLL beside the exe.
+   * Rejects on invalid options, startup failure or timeout.
+   */
   async start(): Promise<void> {
     const startedAt = performance.now();
     if (this.started) {
@@ -272,7 +309,12 @@ export class WeapnApp {
     }
   }
 
-  /** Static assets are resolved relative to the application module, including in an exe. */
+  /**
+   * Serve a directory through intercepted GET/HEAD requests without an HTTP server.
+   * Register before start(); replaces any resource handler and selects the origin's URL filter.
+   * @param directory Asset directory URL, typically new URL('./docs/', import.meta.url).
+   * @param origin Frontend origin. Defaults to https://app.example.
+   */
   mountAssets(directory: URL, origin = 'https://app.example'): this {
     const root = new URL(
       directory.href.endsWith('/') ? directory.href : directory.href + '/',
@@ -333,12 +375,14 @@ export class WeapnApp {
     });
   }
 
+  /** Send a validated application command to the live UI Worker. */
   private send(message: ToUI, transfer: Transferable[] = []): void {
     if (!this.worker || this.stopped) {
       throw new Error('UI Worker is not running.');
     }
     this.worker.postMessage(message, transfer);
   }
+  /** Track a native command until the Worker acknowledges or rejects it. */
   private async command(command: WindowCommand): Promise<void> {
     if (!this.started || this.ready || this.stopped) {
       throw new Error('Call and await start() before window operations.');
@@ -354,6 +398,7 @@ export class WeapnApp {
       }
     });
   }
+  /** Dispatch Worker replies, events and resource requests on the main thread. */
   private async receive(message: FromUI): Promise<void> {
     if (this.stopped) {
       return;
@@ -496,6 +541,7 @@ export class WeapnApp {
       }
     }
   }
+  /** Cancel pending work, terminate the Worker and resolve shutdown once. */
   private finish(error = new Error('Window closed.')): void {
     if (this.stopped) {
       return;
